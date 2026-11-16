@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, CheckCircle2, Clock, Eye, ShieldCheck, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Eye, ShieldCheck, X, UserPlus } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
+import { InviteTenantDialog } from "@/components/auth/invite-tenant-dialog";
 
 interface PendingVerification {
   id: string;
@@ -52,6 +53,7 @@ export default function OwnerOverviewPage() {
   const { t } = useTranslation();
   const [selectedVerification, setSelectedVerification] = useState<PendingVerification | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   const handleApprove = (id: string) => {
     setActionSuccess(`Payment ${id} verified successfully.`);
@@ -76,6 +78,15 @@ export default function OwnerOverviewPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInviteModalOpen(true)}
+              className="flex items-center gap-1.5"
+            >
+              <UserPlus className="h-4 w-4 text-primary" />
+              <span>Invite Tenant</span>
+            </Button>
             <Link href="/dashboard/owner/billing">
               <Button variant="outline" size="sm">
                 {t("owner.recordOfflinePayment")}
@@ -88,6 +99,11 @@ export default function OwnerOverviewPage() {
             </Link>
           </div>
         </div>
+
+        <InviteTenantDialog
+          isOpen={inviteModalOpen}
+          onClose={() => setInviteModalOpen(false)}
+        />
 
         {/* Financial KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
