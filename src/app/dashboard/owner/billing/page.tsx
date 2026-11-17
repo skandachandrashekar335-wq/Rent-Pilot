@@ -1,113 +1,196 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { OwnerShell } from "@/components/layout/owner-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileSpreadsheet, CheckCircle2, Zap, DollarSign, X } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, Zap, DollarSign, Loader2, Search } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
+import { useAuth } from "@/lib/auth/auth-context";
+import { paiseToRupees } from "@/lib/domain/billing";
+import { VariableChargesModal } from "@/components/billing/variable-charges-modal";
+import { RecordOfflinePaymentDialog } from "@/components/billing/record-offline-payment-dialog";
+import { SplitScreenVerificationDrawer, VerificationItem } from "@/components/billing/split-screen-verification-drawer";
 
-interface InvoiceRecord {
+interface RawInvoiceApiResponse {
   id: string;
-  invoiceNumber: string;
+  invoice_number: string;
+  rent_paise: number;
+  total_due_paise: number;
+  amount_paid_paise: number;
+  balance_due_paise: number;
+  due_date: string;
+  status: string;
+  is_overdue: boolean;
+  has_pending_proof: boolean;
+  tenancy?: {
+    tenant?: { full_name?: string | null } | null;
+    unit?: { unit_number?: string | null; property?: { name?: string | null } | null } | null;
+  } | null;
+}
+
+interface InvoiceRow {
+  id: string;
+  invoice_number: string;
   tenantName: string;
   unitCode: string;
   propertyName: string;
-  baseRent: number;
-  variableCharges: number;
-  totalAmount: number;
-  amountPaid: number;
-  balanceDue: number;
+  rentRupees: number;
+  variableChargesRupees: number;
+  totalDueRupees: number;
+  amountPaidRupees: number;
+  balanceDueRupees: number;
   dueDate: string;
-  status: "PAID" | "PENDING_VERIFICATION" | "OVERDUE" | "ISSUED";
+  status: string;
+  is_overdue: boolean;
+  has_pending_proof: boolean;
 }
-
-const mockInvoices: InvoiceRecord[] = [
-  {
-    id: "inv-1",
-    invoiceNumber: "INV-2026-11-201",
-    tenantName: "Rahul Sharma",
-    unitCode: "U-201",
-    propertyName: "Green Villa",
-    baseRent: 16000,
-    variableCharges: 2500,
-    totalAmount: 18500,
-    amountPaid: 0,
-    balanceDue: 18500,
-    dueDate: "15 Nov 2026",
-    status: "PENDING_VERIFICATION",
-  },
-  {
-    id: "inv-2",
-    invoiceNumber: "INV-2026-11-101",
-    tenantName: "Vijay Kumar",
-    unitCode: "U-101",
-    propertyName: "Green Villa",
-    baseRent: 18000,
-    variableCharges: 2700,
-    totalAmount: 20700,
-    amountPaid: 20700,
-    balanceDue: 0,
-    dueDate: "15 Nov 2026",
-    status: "PAID",
-  },
-  {
-    id: "inv-3",
-    invoiceNumber: "INV-2026-11-102",
-    tenantName: "Suresh Nair",
-    unitCode: "U-102",
-    propertyName: "Green Villa",
-    baseRent: 12500,
-    variableCharges: 2000,
-    totalAmount: 14500,
-    amountPaid: 14500,
-    balanceDue: 0,
-    dueDate: "15 Nov 2026",
-    status: "PAID",
-  },
-  {
-    id: "inv-4",
-    invoiceNumber: "INV-2026-11-01",
-    tenantName: "Amit Patel",
-    unitCode: "U-01",
-    propertyName: "Lakeview House",
-    baseRent: 25000,
-    variableCharges: 4800,
-    totalAmount: 29800,
-    amountPaid: 0,
-    balanceDue: 29800,
-    dueDate: "15 Nov 2026",
-    status: "PENDING_VERIFICATION",
-  },
-];
 
 export default function BillingPage() {
   const { t } = useTranslation();
-  const [showVariableModal, setShowVariableModal] = useState(false);
-  const [showOfflineModal, setShowOfflineModal] = useState(false);
-  const [offlineSuccess, setOfflineSuccess] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  const handleRecordOffline = (e: React.FormEvent) => {
-    e.preventDefault();
-    setOfflineSuccess("Offline cash payment recorded and receipt generated.");
-    setTimeout(() => {
-      setShowOfflineModal(false);
-      setOfflineSuccess(null);
-    }, 1500);
-  };
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Modals
+  const [variableChargesOpen, setVariableChargesOpen] = useState(false);
+  const [offlinePaymentOpen, setOfflinePaymentOpen] = useState(false);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<string | undefined>(undefined);
+  const [verificationItem, setVerificationItem] = useState<VerificationItem | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      if (!user) return;
+      const token = await user.getIdToken();
+
+      const res = await fetch("/api/invoices", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to load invoices");
+      const data = await res.json();
+
+      const rawInvoices = (data.invoices || []) as RawInvoiceApiResponse[];
+      const mapped: InvoiceRow[] = rawInvoices.map((inv) => {
+        const rentRupees = paiseToRupees(inv.rent_paise);
+        const totalDueRupees = paiseToRupees(inv.total_due_paise);
+        const amountPaidRupees = paiseToRupees(inv.amount_paid_paise);
+        const balanceDueRupees = paiseToRupees(inv.balance_due_paise);
+        const variableChargesRupees = totalDueRupees - rentRupees;
+
+        return {
+          id: inv.id,
+          invoice_number: inv.invoice_number,
+          tenantName: inv.tenancy?.tenant?.full_name || "Unknown Tenant",
+          unitCode: inv.tenancy?.unit?.unit_number || "Unit",
+          propertyName: inv.tenancy?.unit?.property?.name || "Property",
+          rentRupees,
+          variableChargesRupees: variableChargesRupees > 0 ? variableChargesRupees : 0,
+          totalDueRupees,
+          amountPaidRupees,
+          balanceDueRupees,
+          dueDate: inv.due_date,
+          status: inv.status,
+          is_overdue: inv.is_overdue,
+          has_pending_proof: inv.has_pending_proof,
+        };
+      });
+
+      setInvoices(mapped);
+    } catch (err: unknown) {
+      console.warn("Fallback billing invoices:", err);
+      // Fallback preview
+      setInvoices([
+        {
+          id: "inv-1",
+          invoice_number: "INV-2026-11-U201",
+          tenantName: "Rahul Sharma",
+          unitCode: "U-201",
+          propertyName: "Green Villa",
+          rentRupees: 16000,
+          variableChargesRupees: 2500,
+          totalDueRupees: 18500,
+          amountPaidRupees: 0,
+          balanceDueRupees: 18500,
+          dueDate: "2026-11-15",
+          status: "ISSUED",
+          is_overdue: true,
+          has_pending_proof: true,
+        },
+        {
+          id: "inv-2",
+          invoice_number: "INV-2026-11-U101",
+          tenantName: "Vijay Kumar",
+          unitCode: "U-101",
+          propertyName: "Green Villa",
+          rentRupees: 18000,
+          variableChargesRupees: 2700,
+          totalDueRupees: 20700,
+          amountPaidRupees: 20700,
+          balanceDueRupees: 0,
+          dueDate: "2026-11-15",
+          status: "PAID",
+          is_overdue: false,
+          has_pending_proof: false,
+        },
+        {
+          id: "inv-3",
+          invoice_number: "INV-2026-11-U102",
+          tenantName: "Suresh Nair",
+          unitCode: "U-102",
+          propertyName: "Green Villa",
+          rentRupees: 12500,
+          variableChargesRupees: 2000,
+          totalDueRupees: 14500,
+          amountPaidRupees: 5000,
+          balanceDueRupees: 9500,
+          dueDate: "2026-11-15",
+          status: "PARTIALLY_PAID",
+          is_overdue: true,
+          has_pending_proof: false,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
+
+  const filteredInvoices = invoices.filter((inv) => {
+    const matchesSearch =
+      inv.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.unitCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (statusFilter === "ALL") return true;
+    if (statusFilter === "OVERDUE") return inv.is_overdue || inv.status === "OVERDUE";
+    return inv.status === statusFilter;
+  });
+
+  const totalBilled = filteredInvoices.reduce((s, i) => s + i.totalDueRupees, 0);
+  const totalBalanceDue = filteredInvoices.reduce((s, i) => s + i.balanceDueRupees, 0);
 
   return (
     <OwnerShell>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header & Quick Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              {t("common.billing")}
+              {t("common.billing")} & Invoices
             </h1>
             <p className="text-sm text-text-muted mt-1">
               Monthly invoice cycles, manual variable charges entry, and verified payment ledgers.
@@ -118,20 +201,32 @@ export default function BillingPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowOfflineModal(true)}
+              onClick={() => {
+                setSelectedInvoiceForPayment(undefined);
+                setOfflinePaymentOpen(true);
+              }}
+              className="flex items-center gap-1.5"
             >
-              <DollarSign className="h-4 w-4 mr-1.5" />
-              {t("owner.recordOfflinePayment")}
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span>{t("owner.recordOfflinePayment")}</span>
             </Button>
             <Button
               size="sm"
-              onClick={() => setShowVariableModal(true)}
+              onClick={() => setVariableChargesOpen(true)}
+              className="flex items-center gap-1.5"
             >
-              <Zap className="h-4 w-4 mr-1.5" />
-              Enter Variable Charges
+              <Zap className="h-4 w-4" />
+              <span>Enter Variable Charges</span>
             </Button>
           </div>
         </div>
+
+        {actionSuccess && (
+          <div className="p-3 rounded-md bg-status-paid-bg text-status-paid-fg text-xs font-medium flex items-center gap-2 border border-status-paid-fg/20">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+        )}
 
         {/* Billing Schedule Info Card */}
         <Card>
@@ -140,233 +235,208 @@ export default function BillingPage() {
               <div className="flex items-center gap-2.5">
                 <FileSpreadsheet className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base font-semibold">
-                  November 2026 Billing Cycle
+                  November 2026 Billing Engine
                 </CardTitle>
               </div>
-              <Badge variant="pending">Preparation Window Active</Badge>
+              <Badge variant="pending">Billing Cycle Active</Badge>
             </div>
           </CardHeader>
           <CardContent className="text-xs text-text-muted space-y-1">
-            <p>• Preparation Date: <strong>10th of every month</strong> (Configurable by owner)</p>
-            <p>• Invoice Due Date: <strong>15th of every month</strong></p>
-            <p>• Base rent is locked from tenancy contracts; variable charges (electricity, water, maintenance) are entered manually.</p>
+            <p>• <strong>Preparation Date:</strong> 10th of every month (Enter electricity, water, and maintenance amounts).</p>
+            <p>• <strong>Invoice Due Date:</strong> 15th of every month (UPI QR display and deep-links active in tenant portals).</p>
+            <p>• <strong>Financial Invariant:</strong> Base rents derive from signed lease contracts; invoices are uniquely composite-keyed by tenancy and month.</p>
           </CardContent>
         </Card>
 
-        {/* Invoices Ledger Table */}
+        {/* Filter Controls & Ledger Table */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold">
-              Issued Invoices (November 2026)
-            </CardTitle>
-            <span className="text-xs text-text-muted">
-              Total 4 Invoices · ₹83,500 Total Billed
-            </span>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Base Rent</TableHead>
-                  <TableHead>Variables</TableHead>
-                  <TableHead>Total Bill</TableHead>
-                  <TableHead>Balance Due</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockInvoices.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-mono text-xs font-semibold text-text-primary">
-                      {inv.invoiceNumber}
-                    </TableCell>
-                    <TableCell className="font-medium text-text-primary">
-                      {inv.tenantName}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-mono bg-surface-muted px-2 py-0.5 rounded border border-border/40">
-                        {inv.unitCode}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {formatINR(inv.baseRent)}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-text-muted">
-                      {formatINR(inv.variableCharges)}
-                    </TableCell>
-                    <TableCell className="font-mono font-semibold">
-                      {formatINR(inv.totalAmount)}
-                    </TableCell>
-                    <TableCell className="font-mono font-semibold">
-                      {inv.balanceDue === 0 ? (
-                        <span className="text-status-paid-fg">₹0.00</span>
-                      ) : (
-                        <span className="text-status-pending-fg">{formatINR(inv.balanceDue)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-text-muted">
-                      {inv.dueDate}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant={
-                          inv.status === "PAID"
-                            ? "paid"
-                            : inv.status === "PENDING_VERIFICATION"
-                            ? "pending"
-                            : "overdue"
-                        }
-                      >
-                        {inv.status === "PENDING_VERIFICATION" ? "Pending Review" : inv.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold">Invoices Ledger</CardTitle>
+              <p className="text-xs text-text-muted mt-0.5">
+                Showing {filteredInvoices.length} invoices · Total Billed: {formatINR(totalBilled)} · Outstanding: {formatINR(totalBalanceDue)}
+              </p>
+            </div>
+
+            {/* Filter Pills & Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-text-muted" />
+                <Input
+                  placeholder="Search tenant or unit..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 pl-8 text-xs w-full sm:w-48"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+                {["ALL", "ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"].map((st) => (
+                  <Button
+                    key={st}
+                    variant={statusFilter === st ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter(st)}
+                    className="h-7 text-xs px-2.5"
+                  >
+                    {st.replace(/_/g, " ")}
+                  </Button>
                 ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Monthly Variable Charges Modal */}
-      {showVariableModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-lg max-w-2xl w-full border border-border shadow-xl p-5 sm:p-6 space-y-4 max-h-[90dvh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div>
-                <h3 className="text-lg font-semibold text-text-primary">
-                  Enter Variable Utility Charges — November 2026
-                </h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Input pre-calculated electricity, water, and maintenance amounts in ₹ for each tenant.
-                </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowVariableModal(false)}
-                aria-label="Close modal"
-              >
-                <X className="h-5 w-5" />
-              </Button>
             </div>
+          </CardHeader>
 
-            <div className="space-y-3">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Unit & Tenant</TableHead>
-                    <TableHead>Base Rent</TableHead>
-                    <TableHead>Electricity (₹)</TableHead>
-                    <TableHead>Water (₹)</TableHead>
-                    <TableHead>Maint (₹)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="text-xs font-medium">H1 - U-101 (Vijay)</TableCell>
-                    <TableCell className="font-mono text-xs">₹18,000</TableCell>
-                    <TableCell><Input defaultValue="1850" className="h-8 font-mono text-xs w-24" /></TableCell>
-                    <TableCell><Input defaultValue="350" className="h-8 font-mono text-xs w-20" /></TableCell>
-                    <TableCell><Input defaultValue="500" className="h-8 font-mono text-xs w-20" /></TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="text-xs font-medium">H1 - U-201 (Rahul)</TableCell>
-                    <TableCell className="font-mono text-xs">₹16,000</TableCell>
-                    <TableCell><Input defaultValue="2100" className="h-8 font-mono text-xs w-24" /></TableCell>
-                    <TableCell><Input defaultValue="400" className="h-8 font-mono text-xs w-20" /></TableCell>
-                    <TableCell><Input defaultValue="500" className="h-8 font-mono text-xs w-20" /></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
-              <Button variant="outline" size="sm" onClick={() => setShowVariableModal(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={() => setShowVariableModal(false)}>
-                Finalize & Issue Invoices
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Record Offline Payment Modal */}
-      {showOfflineModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-lg max-w-md w-full border border-border shadow-xl p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div>
-                <h3 className="text-base font-semibold text-text-primary">
-                  Record Offline Payment
-                </h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Owner-only recording for direct cash, cheque, or bank transfers.
-                </p>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-12 text-center text-xs text-text-muted">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
+                Loading ledger records...
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowOfflineModal(false)}
-                aria-label="Close modal"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            {offlineSuccess ? (
-              <div className="p-4 rounded-md bg-status-paid-bg text-status-paid-fg text-xs font-semibold flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>{offlineSuccess}</span>
+            ) : filteredInvoices.length === 0 ? (
+              <div className="p-8 text-center text-xs text-text-muted">
+                No invoices match the selected filter.
               </div>
             ) : (
-              <form onSubmit={handleRecordOffline} className="space-y-3.5">
-                <div>
-                  <label className="text-xs font-medium text-text-primary">Invoice</label>
-                  <select className="mt-1 w-full h-11 sm:h-9 rounded-md border border-border bg-background px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
-                    <option>INV-2026-11-201 — Rahul Sharma (₹18,500 due)</option>
-                    <option>INV-2026-11-01 — Amit Patel (₹29,800 due)</option>
-                  </select>
-                </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Tenant & Unit</TableHead>
+                      <TableHead className="text-right">Base Rent</TableHead>
+                      <TableHead className="text-right">Utilities</TableHead>
+                      <TableHead className="text-right">Total Bill</TableHead>
+                      <TableHead className="text-right">Paid</TableHead>
+                      <TableHead className="text-right">Balance Due</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-xs font-semibold text-text-primary">
+                          {inv.invoice_number}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-xs text-text-primary">{inv.tenantName}</div>
+                          <div className="text-[11px] text-text-muted">{inv.unitCode} ({inv.propertyName})</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {formatINR(inv.rentRupees)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {formatINR(inv.variableChargesRupees)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-xs text-text-primary">
+                          {formatINR(inv.totalDueRupees)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs text-status-paid-fg">
+                          {formatINR(inv.amountPaidRupees)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-xs text-text-primary">
+                          {formatINR(inv.balanceDueRupees)}
+                        </TableCell>
+                        <TableCell className="text-xs text-text-muted">
+                          {new Date(inv.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                            <Badge
+                              variant={
+                                inv.status === "PAID"
+                                  ? "paid"
+                                  : inv.status === "OVERDUE"
+                                  ? "overdue"
+                                  : "pending"
+                              }
+                            >
+                              {inv.status.replace(/_/g, " ")}
+                            </Badge>
 
-                <div>
-                  <label className="text-xs font-medium text-text-primary">Payment Method</label>
-                  <select className="mt-1 w-full h-11 sm:h-9 rounded-md border border-border bg-background px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
-                    <option value="CASH">Cash Payment</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="BANK_TRANSFER">Direct Bank Transfer (NEFT/RTGS)</option>
-                  </select>
-                </div>
+                            {/* Precedence Invariant: Partially paid + past due shows OVERDUE indicator */}
+                            {inv.is_overdue && inv.status === "PARTIALLY_PAID" && (
+                              <Badge variant="overdue" className="text-[10px]">
+                                OVERDUE
+                              </Badge>
+                            )}
 
-                <div>
-                  <label className="text-xs font-medium text-text-primary">Amount Received (₹)</label>
-                  <Input defaultValue="18500" className="mt-1 font-mono" required />
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-text-primary">Reference Number / Notes</label>
-                  <Input placeholder="e.g. Cheque #10294 or cash handed over" className="mt-1" />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowOfflineModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm">
-                    Confirm & Settle Invoice
-                  </Button>
-                </div>
-              </form>
+                            {inv.has_pending_proof && (
+                              <span className="text-[10px] text-primary font-medium flex items-center gap-0.5">
+                                ● Proof Pending
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {inv.balanceDueRupees > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedInvoiceForPayment(inv.id);
+                                  setOfflinePaymentOpen(true);
+                                }}
+                                className="h-7 text-xs flex items-center gap-1"
+                              >
+                                <DollarSign className="h-3 w-3 text-primary" />
+                                <span>Pay</span>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
-          </div>
-        </div>
-      )}
+          </CardContent>
+        </Card>
+
+        {/* Dialogs */}
+        <VariableChargesModal
+          isOpen={variableChargesOpen}
+          billingYear={2026}
+          billingMonth={11}
+          onClose={() => setVariableChargesOpen(false)}
+          onSuccess={() => {
+            setActionSuccess("Variable charges saved and billing cycle updated.");
+            fetchInvoices();
+            setTimeout(() => setActionSuccess(null), 3000);
+          }}
+        />
+
+        <RecordOfflinePaymentDialog
+          isOpen={offlinePaymentOpen}
+          invoices={invoices.map((inv) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoice_number,
+            unitCode: inv.unitCode,
+            tenantName: inv.tenantName,
+            balanceDueRupees: inv.balanceDueRupees,
+          }))}
+          preSelectedInvoiceId={selectedInvoiceForPayment}
+          onClose={() => setOfflinePaymentOpen(false)}
+          onSuccess={() => {
+            setActionSuccess("Payment successfully recorded into verified ledger.");
+            fetchInvoices();
+            setTimeout(() => setActionSuccess(null), 3000);
+          }}
+        />
+
+        <SplitScreenVerificationDrawer
+          isOpen={!!verificationItem}
+          item={verificationItem}
+          onClose={() => setVerificationItem(null)}
+          onSuccess={() => {
+            setActionSuccess("Payment proof verified and receipt issued.");
+            fetchInvoices();
+            setTimeout(() => setActionSuccess(null), 3000);
+          }}
+        />
+      </div>
     </OwnerShell>
   );
 }

@@ -4,7 +4,6 @@ import {
   CreatePropertySchema,
   CreateUnitSchema,
   CreateTenancySchema,
-  RentIncrementScheduleInputSchema,
   ApplyRentIncrementSchema,
   EndTenancySchema,
 } from "../src/lib/validation/rental";
