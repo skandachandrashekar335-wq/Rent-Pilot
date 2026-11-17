@@ -59,5 +59,60 @@
     "submitProof": "Submit Reference & Receipt",
     "recentReceipt": "Recent Receipt",
     "reportIssue": "Report Maintenance Issue"
+  },
+  "maintenance": {
+    "title": "Maintenance & Operations",
+    "subtitle": "Track repair tickets, contractor expenses, and property upkeep history.",
+    "openTickets": "Open Tickets",
+    "urgentIssues": "Urgent Issues",
+    "inProgress": "In Progress",
+    "mtdSpend": "MTD Repair Spend",
+    "newRequest": "New Request",
+    "ticketDetails": "Ticket Details",
+    "category": "Category",
+    "priority": "Priority",
+    "status": "Status",
+    "unitProperty": "Unit & Property",
+    "reportedBy": "Reported By",
+    "cost": "Repair Cost",
+    "paidBy": "Cost Borne By",
+    "photos": "Attached Photos",
+    "noPhotos": "No photos attached",
+    "timeline": "Activity Timeline",
+    "addUpdate": "Add Timeline Update",
+    "internalNote": "Internal Landlord Note (Hidden from tenant)",
+    "resolutionNotes": "Resolution Summary",
+    "acknowledge": "Acknowledge",
+    "startWork": "Start Work",
+    "markResolved": "Mark Resolved",
+    "cancelTicket": "Cancel Ticket",
+    "categories": {
+      "PLUMBING": "Plumbing",
+      "ELECTRICAL": "Electrical",
+      "APPLIANCE": "Appliance",
+      "CARPENTRY": "Carpentry",
+      "STRUCTURAL": "Structural",
+      "PEST_CONTROL": "Pest Control",
+      "OTHER": "Other"
+    },
+    "priorities": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "URGENT": "Urgent"
+    },
+    "statuses": {
+      "REPORTED": "Reported",
+      "ACKNOWLEDGED": "Acknowledged",
+      "IN_PROGRESS": "In Progress",
+      "RESOLVED": "Resolved",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "empty": "No notifications yet",
+    "unread": "unread"
   }
 }

@@ -59,5 +59,60 @@
     "submitProof": "संदर्भ और रसीद जमा करें",
     "recentReceipt": "हाल की रसीद",
     "reportIssue": "रखरखाव समस्या की रिपोर्ट करें"
+  },
+  "maintenance": {
+    "title": "रखरखाव और संचालन",
+    "subtitle": "मरम्मत टिकट, खर्च और संपत्ति रखरखाव इतिहास ट्रैक करें।",
+    "openTickets": "खुले टिकट",
+    "urgentIssues": "अति आवश्यक समस्याएं",
+    "inProgress": "प्रगति पर है",
+    "mtdSpend": "इस माह का मरम्मत खर्च",
+    "newRequest": "नया अनुरोध",
+    "ticketDetails": "टिकट विवरण",
+    "category": "श्रेणी",
+    "priority": "प्राथमिकता",
+    "status": "स्थिति",
+    "unitProperty": "इकाई और संपत्ति",
+    "reportedBy": "द्वारा रिपोर्ट किया गया",
+    "cost": "मरम्मत खर्च",
+    "paidBy": "खर्च वहन किया",
+    "photos": "संलग्न तस्वीरें",
+    "noPhotos": "कोई तस्वीर संलग्न नहीं है",
+    "timeline": "गतिविधि टाइमलाइन",
+    "addUpdate": "टाइमलाइन में अपडेट जोड़ें",
+    "internalNote": "आंतरिक मकान मालिक नोट (किरायेदार से छिपा हुआ)",
+    "resolutionNotes": "समाधान विवरण",
+    "acknowledge": "स्वीकार करें",
+    "startWork": "काम शुरू करें",
+    "markResolved": "समाधान के रूप में चिह्नित करें",
+    "cancelTicket": "टिकट रद्द करें",
+    "categories": {
+      "PLUMBING": "प्लंबिंग (नल / पाइप रिसाव)",
+      "ELECTRICAL": "बिजली (स्विच / वायरिंग)",
+      "APPLIANCE": "उपकरण (गीज़र / एसी)",
+      "CARPENTRY": "बढ़ईगीरी (दरवाजा / ताला)",
+      "STRUCTURAL": "संरचनात्मक (दीवार / पेंट)",
+      "PEST_CONTROL": "कीट नियंत्रण",
+      "OTHER": "अन्य"
+    },
+    "priorities": {
+      "LOW": "कम",
+      "MEDIUM": "मध्यम",
+      "HIGH": "उच्च",
+      "URGENT": "अति आवश्यक"
+    },
+    "statuses": {
+      "REPORTED": "रिपोर्ट किया गया",
+      "ACKNOWLEDGED": "स्वीकार किया गया",
+      "IN_PROGRESS": "प्रगति पर है",
+      "RESOLVED": "समाधान हो गया",
+      "CANCELLED": "रद्द किया गया"
+    }
+  },
+  "notifications": {
+    "title": "सूचनाएं",
+    "markAllRead": "सभी को पढ़ा हुआ चिह्नित करें",
+    "empty": "कोई नई सूचना नहीं है",
+    "unread": "अपठित"
   }
 }

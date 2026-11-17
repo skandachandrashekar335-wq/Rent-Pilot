@@ -7,6 +7,7 @@ import { Home, History, Wrench, User, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useTranslation } from "./locale-context";
 
 interface TabItem {
@@ -52,6 +53,7 @@ export function TenantShell({ children }: { children: React.ReactNode }) {
             <span>{t("common.owner")} View</span>
             <ArrowUpRight className="h-3 w-3" />
           </Link>
+          <NotificationBell />
           <LocaleSwitcher />
           <ThemeToggle />
         </div>

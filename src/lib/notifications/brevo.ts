@@ -219,3 +219,137 @@ export async function sendPaymentRejectedAlert(params: {
     htmlContent,
   });
 }
+
+
+/**
+ * 4. Maintenance Ticket Reported Notification (To Owner / Manager)
+ */
+export async function sendMaintenanceReportedToOwnerEmail(params: {
+  ownerEmail: string;
+  ownerName: string;
+  tenantName: string;
+  propertyName: string;
+  unitCode: string;
+  ticketTitle: string;
+  category: string;
+  priority: string;
+  description: string;
+  photoCount: number;
+  dashboardUrl: string;
+  locale?: "en" | "kn" | "hi";
+}) {
+  const locale = params.locale || "en";
+
+  let subject = `[${params.priority}] New Maintenance Request: ${params.ticketTitle} — ${params.unitCode}`;
+  if (locale === "kn") {
+    subject = `[${params.priority}] ಹೊಸ ನಿರ್ವಹಣಾ ಕೋರಿಕೆ: ${params.ticketTitle} — ${params.unitCode}`;
+  } else if (locale === "hi") {
+    subject = `[${params.priority}] नया रखरखाव अनुरोध: ${params.ticketTitle} — ${params.unitCode}`;
+  }
+
+  const priorityColor =
+    params.priority === "URGENT" ? "#dc2626" : params.priority === "HIGH" ? "#ea580c" : "#2563eb";
+
+  const htmlContent = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; color: #0f172a;">
+      <div style="margin-bottom: 20px;">
+        <span style="display: inline-block; padding: 4px 8px; background: #0f172a; color: #fff; font-weight: bold; border-radius: 4px; font-size: 14px;">◈ RentPilot Maintenance</span>
+      </div>
+      <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Hello ${params.ownerName},</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        A new maintenance ticket has been reported by <strong>${params.tenantName}</strong> for <strong>${params.unitCode} (${params.propertyName})</strong>.
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">${params.category}</span>
+          <span style="display: inline-block; padding: 2px 8px; background: ${priorityColor}; color: #ffffff; border-radius: 4px; font-size: 11px; font-weight: 700;">${params.priority} PRIORITY</span>
+        </div>
+        <div style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px;">${params.ticketTitle}</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #334155; white-space: pre-wrap; background: #ffffff; padding: 12px; border-radius: 4px; border: 1px solid #e2e8f0;">"${params.description}"</div>
+        ${params.photoCount > 0 ? `<div style="font-size: 12px; color: #64748b; margin-top: 10px;">📷 ${params.photoCount} photo(s) attached</div>` : ""}
+      </div>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${params.dashboardUrl}" style="display: inline-block; padding: 12px 24px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          Open Maintenance Hub →
+        </a>
+      </div>
+    </div>
+  `;
+
+  return sendBrevoEmail({
+    toEmail: params.ownerEmail,
+    toName: params.ownerName,
+    subject,
+    htmlContent,
+  });
+}
+
+/**
+ * 5. Maintenance Ticket Status Updated Notification (To Tenant)
+ */
+export async function sendMaintenanceStatusUpdatedToTenantEmail(params: {
+  tenantEmail: string;
+  tenantName: string;
+  propertyName: string;
+  unitCode: string;
+  ticketTitle: string;
+  newStatus: string;
+  comment?: string | null;
+  portalUrl: string;
+  locale?: "en" | "kn" | "hi";
+}) {
+  const locale = params.locale || "en";
+
+  let statusLabel = params.newStatus;
+  let subject = `Maintenance Update: ${params.ticketTitle} is now ${params.newStatus}`;
+
+  if (locale === "kn") {
+    statusLabel = params.newStatus === "RESOLVED" ? "ಪರಿಹರಿಸಲಾಗಿದೆ" : params.newStatus === "IN_PROGRESS" ? "ಪ್ರಗತಿಯಲ್ಲಿದೆ" : params.newStatus === "ACKNOWLEDGED" ? "ಸ್ವೀಕರಿಸಲಾಗಿದೆ" : params.newStatus;
+    subject = `ನಿರ್ವಹಣಾ ಮಾಹಿತಿ: ${params.ticketTitle} — ${statusLabel}`;
+  } else if (locale === "hi") {
+    statusLabel = params.newStatus === "RESOLVED" ? "समाधान हो गया" : params.newStatus === "IN_PROGRESS" ? "प्रगति पर है" : params.newStatus === "ACKNOWLEDGED" ? "स्वीकार किया गया" : params.newStatus;
+    subject = `रखरखाव अपडेट: ${params.ticketTitle} — ${statusLabel}`;
+  }
+
+  const badgeColor =
+    params.newStatus === "RESOLVED" ? "#16a34a" : params.newStatus === "IN_PROGRESS" ? "#2563eb" : "#ca8a04";
+
+  const htmlContent = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; color: #0f172a;">
+      <div style="margin-bottom: 20px;">
+        <span style="display: inline-block; padding: 4px 8px; background: #0f172a; color: #fff; font-weight: bold; border-radius: 4px; font-size: 14px;">◈ RentPilot Update</span>
+      </div>
+      <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Hello ${params.tenantName},</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        Your landlord updated your maintenance request for <strong>${params.unitCode} (${params.propertyName})</strong>.
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-size: 14px; font-weight: 600; color: #0f172a;">${params.ticketTitle}</span>
+          <span style="display: inline-block; padding: 3px 8px; background: ${badgeColor}; color: #ffffff; border-radius: 4px; font-size: 11px; font-weight: 700;">${statusLabel}</span>
+        </div>
+        ${params.comment ? `
+          <div style="font-size: 13px; line-height: 1.5; color: #334155; margin-top: 10px; padding: 10px; background: #ffffff; border-radius: 4px; border: 1px solid #e2e8f0;">
+            <strong>Landlord Note:</strong> "${params.comment}"
+          </div>
+        ` : ""}
+      </div>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${params.portalUrl}" style="display: inline-block; padding: 12px 24px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          View Request in Tenant Portal →
+        </a>
+      </div>
+    </div>
+  `;
+
+  return sendBrevoEmail({
+    toEmail: params.tenantEmail,
+    toName: params.tenantName,
+    subject,
+    htmlContent,
+  });
+}

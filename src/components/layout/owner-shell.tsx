@@ -10,7 +10,6 @@ import {
   Wrench,
   Menu,
   X,
-  Bell,
   User,
   ArrowUpRight,
 } from "lucide-react";
@@ -18,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useTranslation } from "./locale-context";
 
 interface NavItem {
@@ -77,17 +77,7 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
             <ArrowUpRight className="h-3 w-3" />
           </Link>
 
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              className="text-text-muted hover:text-text-primary"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-status-pending-fg" />
-            </Button>
-          </div>
+          <NotificationBell />
 
           <LocaleSwitcher />
           <ThemeToggle />
