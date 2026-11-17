@@ -1,0 +1,36 @@
+name: Supabase Health & Heartbeat Keepalive
+
+on:
+  schedule:
+    # Run every 48 hours to safeguard Supabase free-tier 7-day inactivity auto-pause
+    - cron: '0 0 */2 * *'
+  workflow_dispatch:
+    # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  heartbeat:
+    name: Ping RentPilot Health API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Application Health Endpoint
+        run: |
+          TARGET_URL="${{ secrets.RENTPILOT_APP_URL }}"
+          if [ -z "$TARGET_URL" ]; then
+            echo "::warning title=Heartbeat Skipped::RENTPILOT_APP_URL secret is not configured in this repository. Skipping keepalive ping."
+            exit 0
+          fi
+
+          echo "Pinging RentPilot Health Endpoint: ${TARGET_URL}/api/health"
+          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 15 "${TARGET_URL}/api/health")
+          HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+
+          echo "Response HTTP Status: $HTTP_STATUS"
+          echo "Response Body: $HTTP_BODY"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error title=Health Check Failed::RentPilot health check returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "RentPilot instance and database connection verified healthy."

@@ -107,6 +107,14 @@ export default function OwnerOverviewPage() {
       });
 
       setPendingVerifications(verifications);
+
+      // Stage F: Demand-driven background reconciliation on owner dashboard mount
+      fetch("/api/billing/reconcile", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((reconcileErr) => {
+        console.warn("[Background Billing Reconcile]", reconcileErr);
+      });
     } catch (err: unknown) {
       console.warn("Fallback overview data:", err);
       // Fallback preview verifications

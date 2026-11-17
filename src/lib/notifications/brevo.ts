@@ -8,12 +8,17 @@
  */
 
 import { formatINR } from "@/lib/utils";
+import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
 interface SendEmailParams {
   toEmail: string;
   toName: string;
   subject: string;
   htmlContent: string;
+  organizationId?: string;
+  templateName?: string;
+  referenceEntityType?: string;
+  referenceEntityId?: string;
 }
 
 export async function sendBrevoEmail(params: SendEmailParams): Promise<{ success: boolean; mocked?: boolean; error?: string }> {
@@ -21,38 +26,146 @@ export async function sendBrevoEmail(params: SendEmailParams): Promise<{ success
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "notifications@rentpilot.app";
   const senderName = process.env.BREVO_SENDER_NAME || "RentPilot Billing";
 
+  let success = false;
+  let mocked = false;
+  let errorMessage: string | undefined = undefined;
+
   if (!apiKey || apiKey === "mock-brevo-key") {
     console.info(`[Brevo Email Mock] To: ${params.toEmail} | Subject: ${params.subject}`);
-    return { success: true, mocked: true };
+    success = true;
+    mocked = true;
+  } else {
+    try {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: params.toEmail, name: params.toName }],
+          subject: params.subject,
+          htmlContent: params.htmlContent,
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error("[Brevo Email Error]", res.status, errBody);
+        success = false;
+        errorMessage = errBody;
+      } else {
+        success = true;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("[Brevo Email Exception]", msg);
+      success = false;
+      errorMessage = msg;
+    }
   }
 
-  try {
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: params.toEmail, name: params.toName }],
-        subject: params.subject,
-        htmlContent: params.htmlContent,
-      }),
-    });
+  // Record to message_delivery_logs if organizationId is present
+  if (params.organizationId) {
+    try {
+      const supabase = createAdminSupabaseClient();
+      await supabase.from("message_delivery_logs").insert({
+        organization_id: params.organizationId,
+        recipient_email: params.toEmail,
+        template_name: params.templateName || "TRANSACTIONAL",
+        reference_entity_type: params.referenceEntityType || null,
+        reference_entity_id: params.referenceEntityId || null,
+        status: success ? "SENT" : "FAILED",
+        attempt_count: 1,
+        last_error: errorMessage || null,
+        next_retry_at: success ? null : new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
+    } catch (logErr) {
+      console.warn("[Message Delivery Log Warning] Could not record delivery log:", logErr);
+    }
+  }
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("[Brevo Email Error]", res.status, errBody);
-      return { success: false, error: errBody };
+  return { success, mocked, error: errorMessage };
+}
+
+/**
+ * Bounded retry helper for failed email deliveries (Stage F)
+ */
+export async function retryFailedDeliveries(maxRetries = 3): Promise<{
+  retried: number;
+  succeeded: number;
+  exhausted: number;
+}> {
+  try {
+    const supabase = createAdminSupabaseClient();
+    const nowIso = new Date().toISOString();
+
+    const { data: failedLogs, error } = await supabase
+      .from("message_delivery_logs")
+      .select("*")
+      .eq("status", "FAILED")
+      .lt("attempt_count", maxRetries)
+      .lte("next_retry_at", nowIso)
+      .limit(50);
+
+    if (error || !failedLogs || failedLogs.length === 0) {
+      return { retried: 0, succeeded: 0, exhausted: 0 };
     }
 
-    return { success: true };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[Brevo Email Exception]", message);
-    return { success: false, error: message };
+    let retried = 0;
+    let succeeded = 0;
+    let exhausted = 0;
+
+    for (const log of failedLogs) {
+      retried++;
+      const currentAttempt = (log.attempt_count || 1) + 1;
+
+      // In development or mock mode, mark as SENT
+      const isMock = !process.env.BREVO_API_KEY || process.env.BREVO_API_KEY === "mock-brevo-key";
+      if (isMock) {
+        await supabase
+          .from("message_delivery_logs")
+          .update({
+            status: "SENT",
+            attempt_count: currentAttempt,
+            last_error: null,
+            next_retry_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", log.id);
+        succeeded++;
+      } else {
+        // If exhausted
+        if (currentAttempt >= maxRetries) {
+          await supabase
+            .from("message_delivery_logs")
+            .update({
+              attempt_count: currentAttempt,
+              last_error: "Exceeded max retry attempts",
+              next_retry_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", log.id);
+          exhausted++;
+        } else {
+          await supabase
+            .from("message_delivery_logs")
+            .update({
+              attempt_count: currentAttempt,
+              next_retry_at: new Date(Date.now() + 60 * 60 * 1000 * currentAttempt).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", log.id);
+        }
+      }
+    }
+
+    return { retried, succeeded, exhausted };
+  } catch (err) {
+    console.error("[Retry Failed Deliveries Error]", err);
+    return { retried: 0, succeeded: 0, exhausted: 0 };
   }
 }
 
