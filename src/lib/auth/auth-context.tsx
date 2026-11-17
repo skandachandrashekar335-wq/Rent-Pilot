@@ -48,6 +48,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  signInAsDemoOwner: () => void;
+  signInAsDemoTenant: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -62,6 +64,8 @@ const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: async () => {},
   signOut: async () => {},
   refreshSession: async () => {},
+  signInAsDemoOwner: () => {},
+  signInAsDemoTenant: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -177,6 +181,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInAsDemoOwner = () => {
+    const mockUser = {
+      uid: "demo-owner-uid",
+      email: "owner@rentpilot.app",
+      displayName: "Skanda Chandrashekar",
+      photoURL: null,
+      getIdToken: async () => "demo-owner-token",
+    } as unknown as User;
+    setUser(mockUser);
+    setProfile({
+      id: "demo-profile-owner",
+      firebase_uid: "demo-owner-uid",
+      email: "owner@rentpilot.app",
+      full_name: "Skanda Chandrashekar",
+      photo_url: null,
+      preferred_locale: "en",
+    });
+    setIsOwner(true);
+    setIsTenant(false);
+    setMemberships([
+      {
+        id: "demo-membership-1",
+        organization_id: "demo-org-1",
+        profile_id: "demo-profile-owner",
+        role: "OWNER",
+        status: "ACTIVE",
+        organization: {
+          id: "demo-org-1",
+          name: "Sri Lakshmi Estates",
+          owner_profile_id: "demo-profile-owner",
+          billing_day_of_month: 10,
+          currency: "INR",
+          timezone: "Asia/Kolkata",
+        },
+      },
+    ]);
+    setActiveOrganization({
+      id: "demo-org-1",
+      name: "Sri Lakshmi Estates",
+      owner_profile_id: "demo-profile-owner",
+      billing_day_of_month: 10,
+      currency: "INR",
+      timezone: "Asia/Kolkata",
+    });
+    setLoading(false);
+  };
+
+  const signInAsDemoTenant = () => {
+    const mockUser = {
+      uid: "demo-tenant-uid",
+      email: "rahul.sharma@example.com",
+      displayName: "Rahul Sharma",
+      photoURL: null,
+      getIdToken: async () => "demo-tenant-token",
+    } as unknown as User;
+    setUser(mockUser);
+    setProfile({
+      id: "demo-profile-tenant",
+      firebase_uid: "demo-tenant-uid",
+      email: "rahul.sharma@example.com",
+      full_name: "Rahul Sharma",
+      photo_url: null,
+      preferred_locale: "en",
+    });
+    setIsOwner(false);
+    setIsTenant(true);
+    setMemberships([]);
+    setActiveOrganization(null);
+    setLoading(false);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -191,6 +266,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshSession,
+        signInAsDemoOwner,
+        signInAsDemoTenant,
       }}
     >
       {children}

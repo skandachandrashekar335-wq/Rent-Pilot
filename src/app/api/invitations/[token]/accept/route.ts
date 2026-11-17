@@ -77,6 +77,24 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    // Link tenant profile_id upon invitation acceptance
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", userEmail)
+      .maybeSingle();
+
+    if (userProfile) {
+      await supabase
+        .from("tenants")
+        .update({
+          profile_id: userProfile.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", invitation.organization_id)
+        .eq("email", invitation.invited_email);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Invitation accepted. Welcome to your rental portal!",

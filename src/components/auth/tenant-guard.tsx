@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ShieldAlert, Lock, ArrowRight, Loader2, Mail } from "lucide-react";
 
 export function TenantGuard({ children }: { children: React.ReactNode }) {
-  const { user, isTenant, loading, signInWithGoogle, refreshSession } = useAuth();
+  const { user, isTenant, loading, signInWithGoogle, refreshSession, signInAsDemoTenant } = useAuth();
   const [inviteCode, setInviteCode] = useState("");
   const router = useRouter();
 
@@ -43,6 +43,13 @@ export function TenantGuard({ children }: { children: React.ReactNode }) {
             <Button onClick={signInWithGoogle} className="w-full h-11 text-sm font-semibold">
               <span className="mr-2">Sign in with Google</span>
               <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={signInAsDemoTenant}
+              className="w-full text-xs font-mono text-text-muted hover:text-text-primary"
+            >
+              Continue in Demo Mode (Rahul Sharma)
             </Button>
             <div className="text-center">
               <Link href="/" className="text-xs text-text-muted hover:text-text-primary">

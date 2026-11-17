@@ -1,0 +1,206 @@
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { verifyServerAuth } from "@/lib/auth/server-auth";
+import { createAdminSupabaseClient } from "@/lib/supabase/server";
+import { CreateTenancySchema } from "@/lib/validation/rental";
+import { rupeesToPaise } from "@/lib/domain/rent-increments";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { auth, errorResponse } = await verifyServerAuth(req);
+    if (!auth || errorResponse) {
+      return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
+    }
+
+    const orgId = auth.organizationId;
+    if (!orgId) {
+      return NextResponse.json({ tenancies: [] });
+    }
+
+    const supabase = createAdminSupabaseClient();
+    const { data: tenancies, error } = await supabase
+      .from("tenancies")
+      .select(`
+        *,
+        tenant:tenants(*),
+        unit:units(
+          *,
+          property:properties(id, name, address_line, city)
+        ),
+        rent_increment_schedules:rent_increment_schedules(*)
+      `)
+      .eq("organization_id", orgId)
+      .order("start_date", { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ tenancies: tenancies || [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { auth, errorResponse } = await verifyServerAuth(req);
+    if (!auth || errorResponse) {
+      return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
+    }
+
+    const body = await req.json();
+    const parsed = CreateTenancySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Validation failed" }, { status: 400 });
+    }
+
+    const orgId = parsed.data.organizationId || auth.organizationId;
+    if (!orgId) {
+      return NextResponse.json({ error: "Organization required" }, { status: 400 });
+    }
+
+    const supabase = createAdminSupabaseClient();
+
+    // 1. Resolve or Create Tenant Record
+    let tenantId = parsed.data.tenantId;
+    if (!tenantId) {
+      // Check if tenant with this email exists in org
+      const { data: existingTenant } = await supabase
+        .from("tenants")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("email", parsed.data.tenantEmail)
+        .maybeSingle();
+
+      if (existingTenant) {
+        tenantId = existingTenant.id;
+      } else {
+        // Check if there is an existing registered profile with this email to link immediately
+        const { data: matchingProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", parsed.data.tenantEmail)
+          .maybeSingle();
+
+        const { data: newTenant, error: tenantErr } = await supabase
+          .from("tenants")
+          .insert({
+            organization_id: orgId,
+            profile_id: matchingProfile?.id || null,
+            full_name: parsed.data.tenantFullName,
+            email: parsed.data.tenantEmail,
+            phone: parsed.data.tenantPhone || null,
+          })
+          .select("id")
+          .single();
+
+        if (tenantErr || !newTenant) {
+          return NextResponse.json({ error: tenantErr?.message || "Failed to create tenant record" }, { status: 500 });
+        }
+        tenantId = newTenant.id;
+      }
+    }
+
+    const monthlyRentPaise = rupeesToPaise(parsed.data.monthlyRentRupees);
+    const securityDepositPaise = rupeesToPaise(parsed.data.securityDepositRupees);
+
+    // 2. Insert Tenancy (Protected by PostgreSQL GiST exclusion constraint)
+    const { data: tenancy, error: tenancyErr } = await supabase
+      .from("tenancies")
+      .insert({
+        organization_id: orgId,
+        unit_id: parsed.data.unitId,
+        tenant_id: tenantId,
+        start_date: parsed.data.startDate,
+        end_date: parsed.data.endDate || null,
+        monthly_rent_paise: Number(monthlyRentPaise),
+        security_deposit_paise: Number(securityDepositPaise),
+        status: parsed.data.status,
+      })
+      .select(`
+        *,
+        tenant:tenants(*),
+        unit:units(*, property:properties(*))
+      `)
+      .single();
+
+    if (tenancyErr) {
+      // PostgreSQL 23P01 = exclusion_violation
+      if (tenancyErr.code === "23P01" || tenancyErr.message.includes("no_overlapping_tenancies_per_unit")) {
+        return NextResponse.json(
+          {
+            error: "This unit already has an active or upcoming lease covering these dates. Tenancy dates cannot overlap.",
+            code: "TENANCY_OVERLAP_CONFLICT",
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: tenancyErr.message }, { status: 500 });
+    }
+
+    // 3. Update Unit Occupancy Status to OCCUPIED
+    await supabase
+      .from("units")
+      .update({ occupancy_status: "OCCUPIED", updated_at: new Date().toISOString() })
+      .eq("id", parsed.data.unitId);
+
+    // 4. Optionally Insert Rent Increment Schedule
+    let createdSchedule = null;
+    if (parsed.data.incrementSchedule) {
+      const { data: schedule, error: schedErr } = await supabase
+        .from("rent_increment_schedules")
+        .insert({
+          organization_id: orgId,
+          tenancy_id: tenancy.id,
+          increment_type: parsed.data.incrementSchedule.incrementType,
+          increment_value: parsed.data.incrementSchedule.incrementValue,
+          interval_months: parsed.data.incrementSchedule.intervalMonths,
+          next_increment_date: parsed.data.incrementSchedule.nextIncrementDate,
+          auto_apply: parsed.data.incrementSchedule.autoApply,
+          status: "ACTIVE",
+        })
+        .select()
+        .single();
+
+      if (!schedErr) {
+        createdSchedule = schedule;
+      }
+    }
+
+    // 5. Automatically Generate an Onboarding Invitation for the Tenant
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await supabase.from("tenant_invitations").insert({
+      organization_id: orgId,
+      unit_id: parsed.data.unitId,
+      invited_email: parsed.data.tenantEmail,
+      token_hash: tokenHash,
+      status: "PENDING",
+      expires_at: expiresAt.toISOString(),
+      created_by: auth.profileId,
+    });
+
+    const host = req.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const inviteUrl = `${protocol}://${host}/invite/${rawToken}`;
+
+    return NextResponse.json(
+      {
+        tenancy,
+        incrementSchedule: createdSchedule,
+        inviteUrl,
+        rawToken,
+        message: "Tenancy successfully created.",
+      },
+      { status: 201 }
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

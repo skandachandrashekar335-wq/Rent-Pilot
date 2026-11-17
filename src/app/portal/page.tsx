@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { TenantShell } from "@/components/layout/tenant-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -10,9 +10,50 @@ import { Input } from "@/components/ui/input";
 import { Zap, Upload, CheckCircle2, QrCode, ArrowRight, X, FileText } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
+import { useAuth } from "@/lib/auth/auth-context";
+import { paiseToRupees } from "@/lib/domain/rent-increments";
 
 export default function TenantHomePage() {
   const { t } = useTranslation();
+  const { user, profile } = useAuth();
+  const [tenancyInfo, setTenancyInfo] = useState<{
+    unitNumber: string;
+    propertyName: string;
+    baseRentRupees: number;
+    tenantName: string;
+  }>({
+    unitNumber: "U-201",
+    propertyName: "Green Villa",
+    baseRentRupees: 16000,
+    tenantName: "Rahul Sharma",
+  });
+
+  useEffect(() => {
+    async function loadTenancy() {
+      try {
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch("/api/portal/tenancy", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.activeTenancy) {
+            setTenancyInfo({
+              unitNumber: data.activeTenancy.unit?.unit_number || "U-201",
+              propertyName: data.activeTenancy.unit?.property?.name || "Green Villa",
+              baseRentRupees: paiseToRupees(data.activeTenancy.monthly_rent_paise),
+              tenantName: data.tenant?.full_name || profile?.full_name || "Tenant",
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Portal tenancy fetch:", err);
+      }
+    }
+    loadTenancy();
+  }, [user, profile]);
+
   const [showPayModal, setShowPayModal] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [reference, setReference] = useState("");
@@ -39,10 +80,10 @@ export default function TenantHomePage() {
         {/* Welcome Greeting */}
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-text-primary">
-            {t("tenant.welcomeBack")}, Rahul
+            {t("tenant.welcomeBack")}, {tenancyInfo.tenantName}
           </h1>
           <p className="text-xs text-text-muted mt-0.5">
-            Unit 201 — Green Villa · Active Tenancy
+            Unit {tenancyInfo.unitNumber} — {tenancyInfo.propertyName} · Active Tenancy
           </p>
         </div>
 
@@ -56,7 +97,7 @@ export default function TenantHomePage() {
               <Badge variant="pending">🟡 {t("common.unpaid")}</Badge>
             </div>
             <CardTitle className="text-3xl font-mono font-bold text-text-primary mt-1">
-              {formatINR(18500)}
+              {formatINR(tenancyInfo.baseRentRupees + 2500)}
             </CardTitle>
             <p className="text-xs text-text-muted">
               {t("tenant.dueDate")}: <strong>15 Nov 2026</strong>
@@ -66,7 +107,7 @@ export default function TenantHomePage() {
           <CardContent className="pt-4 space-y-2 text-xs">
             <div className="flex justify-between py-1 border-b border-border/30">
               <span className="text-text-muted">{t("tenant.baseRent")}</span>
-              <span className="font-mono font-medium">{formatINR(16000)}</span>
+              <span className="font-mono font-medium">{formatINR(tenancyInfo.baseRentRupees)}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/30">
               <span className="text-text-muted">{t("tenant.electricity")} (Nov)</span>

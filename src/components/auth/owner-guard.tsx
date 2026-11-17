@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Building2, Lock, ArrowRight, Loader2 } from "lucide-react";
 
 export function OwnerGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, isOwner, memberships, loading, signInWithGoogle, refreshSession } = useAuth();
+  const { user, profile, isOwner, memberships, loading, signInWithGoogle, refreshSession, signInAsDemoOwner } = useAuth();
   const [orgName, setOrgName] = useState("");
   const [billingDay, setBillingDay] = useState(10);
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
@@ -44,6 +44,13 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
             <Button onClick={signInWithGoogle} className="w-full h-11 text-sm font-semibold">
               <span className="mr-2">Sign in with Google</span>
               <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={signInAsDemoOwner}
+              className="w-full text-xs font-mono text-text-muted hover:text-text-primary"
+            >
+              Continue in Demo Mode (Sri Lakshmi Estates)
             </Button>
             <div className="text-center">
               <Link href="/" className="text-xs text-text-muted hover:text-text-primary">
