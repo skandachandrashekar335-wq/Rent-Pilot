@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UserCheck, X, AlertCircle, Copy, Check, ExternalLink, Loader2, TrendingUp } from "lucide-react";
+import { isValidUuid } from "@/lib/utils";
 
 interface CreateTenancyDialogProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export function CreateTenancyDialog({
       const token = await user.getIdToken();
 
       const payload: Record<string, unknown> = {
-        organizationId: activeOrganization?.id,
+        organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
         unitId,
         tenantEmail: tenantEmail.trim().toLowerCase(),
         tenantFullName: tenantName.trim(),
@@ -234,8 +235,8 @@ export function CreateTenancyDialog({
                   </label>
                   <Input
                     type="number"
-                    min={1}
-                    step={100}
+                    min={0}
+                    step={1}
                     value={monthlyRent}
                     onChange={(e) => setMonthlyRent(Number(e.target.value))}
                     required
@@ -296,8 +297,8 @@ export function CreateTenancyDialog({
                         </label>
                         <Input
                           type="number"
-                          step={0.5}
-                          min={0.1}
+                          step="any"
+                          min={0}
                           value={incrementValue}
                           onChange={(e) => setIncrementValue(Number(e.target.value))}
                           className="h-8 text-xs font-mono"

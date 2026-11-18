@@ -46,7 +46,7 @@ export default function TenantHistoryPage() {
   useEffect(() => {
     async function loadHistory() {
       try {
-        if (!user) return;
+        if (!user) throw new Error("Demo preview mode");
         const token = await user.getIdToken();
         const res = await fetch("/api/invoices", {
           headers: { Authorization: `Bearer ${token}` },

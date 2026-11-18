@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .from("maintenance_requests")
       .select(`
         *,
-        property:properties(id, name, address_line1, city),
+        property:properties(id, name, address_line, city),
         unit:units(id, unit_number, configuration_label, floor_number),
         tenancy:tenancies(
           id,

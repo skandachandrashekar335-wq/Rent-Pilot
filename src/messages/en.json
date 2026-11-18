@@ -58,7 +58,12 @@
     "alreadyPaid": "Already paid via UPI / Bank?",
     "submitProof": "Submit Reference & Receipt",
     "recentReceipt": "Recent Receipt",
-    "reportIssue": "Report Maintenance Issue"
+    "reportIssue": "Report Maintenance Issue",
+    "receiptNumber": "Receipt Number",
+    "verifiedAt": "Verified On",
+    "verifiedAmount": "Verified Amount",
+    "transactionRef": "Transaction Reference",
+    "viewPaymentHistory": "View Complete Payment History"
   },
   "maintenance": {
     "title": "Maintenance & Operations",

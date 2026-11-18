@@ -455,7 +455,7 @@ export function MaintenanceDrawer({
                     <Input
                       type="number"
                       min={0}
-                      step={50}
+                      step={1}
                       value={repairCost}
                       onChange={(e) => setRepairCost(Number(e.target.value))}
                       className="text-xs h-8 font-mono"

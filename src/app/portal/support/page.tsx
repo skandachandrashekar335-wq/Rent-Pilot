@@ -68,7 +68,7 @@ function TenantSupportContent() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      if (!user) return;
+      if (!user) throw new Error("Demo preview mode");
       const token = await user.getIdToken();
       const res = await fetch("/api/maintenance", {
         headers: { Authorization: `Bearer ${token}` },

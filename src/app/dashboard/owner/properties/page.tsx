@@ -105,7 +105,7 @@ export default function PropertiesPage() {
 
   const fetchPropertiesData = useCallback(async () => {
     try {
-      if (!user) return;
+      if (!user) throw new Error("Demo preview mode");
       const token = await user.getIdToken();
 
       const [propsRes, tenanciesRes] = await Promise.all([

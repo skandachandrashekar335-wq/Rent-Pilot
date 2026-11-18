@@ -57,11 +57,12 @@ export function UpiPaymentModal({
 
   if (!isOpen) return null;
 
+  const safeAmount = Number.isFinite(amountRupees) && amountRupees > 0 ? amountRupees : 0;
   const upiUri = buildUpiPaymentUri({
     vpa,
     payeeName,
-    amountPaise: BigInt(Math.round(amountRupees * 100)),
-    transactionNote: `Rent ${invoiceNumber} ${unitCode}`,
+    amountPaise: BigInt(Math.round(safeAmount * 100)),
+    transactionNote: `Rent ${invoiceNumber || "INV"} ${unitCode || ""}`.trim(),
   });
 
   const normalizedRef = normalizePaymentReference(rawReference);

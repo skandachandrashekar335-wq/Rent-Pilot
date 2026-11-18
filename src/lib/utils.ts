@@ -23,3 +23,8 @@ export function formatDate(date: string | Date): string {
     timeZone: "Asia/Kolkata",
   }).format(d);
 }
+
+export function isValidUuid(id?: string | null): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}

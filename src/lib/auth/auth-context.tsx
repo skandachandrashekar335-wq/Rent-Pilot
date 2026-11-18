@@ -123,10 +123,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const auth = getFirebaseAuth();
       const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
-        setUser(currentUser);
         if (currentUser) {
+          if (typeof window !== "undefined") localStorage.removeItem("rentpilot_demo_role");
+          setUser(currentUser);
           await syncProfile(currentUser);
         } else {
+          const demoRole = typeof window !== "undefined" ? localStorage.getItem("rentpilot_demo_role") : null;
+          if (demoRole === "owner") {
+            signInAsDemoOwner();
+            return;
+          } else if (demoRole === "tenant") {
+            signInAsDemoTenant();
+            return;
+          }
+          setUser(null);
           setProfile(null);
           setMemberships([]);
           setActiveOrganization(null);
@@ -162,6 +172,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("rentpilot_demo_role");
+      }
       const auth = getFirebaseAuth();
       await firebaseSignOut(auth);
       setUser(null);
@@ -182,6 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsDemoOwner = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rentpilot_demo_role", "owner");
+    }
     const mockUser = {
       uid: "demo-owner-uid",
       email: "owner@rentpilot.app",
@@ -229,6 +245,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsDemoTenant = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rentpilot_demo_role", "tenant");
+    }
     const mockUser = {
       uid: "demo-tenant-uid",
       email: "rahul.sharma@example.com",

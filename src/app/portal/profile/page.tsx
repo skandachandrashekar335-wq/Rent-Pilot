@@ -48,7 +48,7 @@ export default function TenantProfilePage() {
   useEffect(() => {
     async function loadTenantData() {
       try {
-        if (!user) return;
+        if (!user) throw new Error("Demo preview mode");
         const token = await user.getIdToken();
         const res = await fetch("/api/portal/tenancy", {
           headers: { Authorization: `Bearer ${token}` },

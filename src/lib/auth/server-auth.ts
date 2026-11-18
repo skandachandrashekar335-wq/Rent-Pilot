@@ -99,6 +99,45 @@ export async function verifyServerAuth(
     if (memberships && memberships.length > 0) {
       activeOrgId = memberships[0].organization_id;
       isOwnerOrManager = memberships.some((m) => m.role === "OWNER" || m.role === "MANAGER");
+    } else if (process.env.NODE_ENV === "development") {
+      // Auto-provision dev organization if none exists
+      let { data: defaultOrg } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("owner_profile_id", profile.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!defaultOrg) {
+        const { data: newOrg, error: orgError } = await supabase
+          .from("organizations")
+          .insert({
+            name: "Sri Lakshmi Estates",
+            owner_profile_id: profile.id,
+            billing_day_of_month: 10,
+            currency: "INR",
+            timezone: "Asia/Kolkata",
+          })
+          .select("id")
+          .single();
+        if (orgError) {
+          console.error("Failed to auto-create dev organization:", orgError);
+        }
+        defaultOrg = newOrg;
+      }
+
+      if (defaultOrg) {
+        await supabase
+          .from("organization_memberships")
+          .upsert({
+            organization_id: defaultOrg.id,
+            profile_id: profile.id,
+            role: "OWNER",
+            status: "ACTIVE",
+          }, { onConflict: "organization_id,profile_id" });
+        activeOrgId = defaultOrg.id;
+        isOwnerOrManager = true;
+      }
     }
   }
 

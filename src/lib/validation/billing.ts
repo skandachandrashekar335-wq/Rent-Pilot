@@ -54,7 +54,7 @@ export const ReviewPaymentSubmissionSchema = z.object({
 export const RecordOfflinePaymentSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
   invoiceId: z.string().uuid("Invalid invoice ID"),
-  tenancyId: z.string().uuid("Invalid tenancy ID"),
+  tenancyId: z.string().uuid("Invalid tenancy ID").optional(),
   amountRupees: z.coerce.number().positive("Payment amount must be positive"),
   paymentMethod: z.enum(["CASH", "CHEQUE", "BANK_TRANSFER"]),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),

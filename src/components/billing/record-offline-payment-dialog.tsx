@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DollarSign, X, AlertCircle, Loader2 } from "lucide-react";
-import { formatINR } from "@/lib/utils";
+import { formatINR, isValidUuid } from "@/lib/utils";
 
 interface InvoiceOption {
   id: string;
@@ -41,6 +41,16 @@ export function RecordOfflinePaymentDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      const activeInv = invoices.find((i) => i.id === (preSelectedInvoiceId || invoices[0]?.id));
+      if (activeInv) {
+        setSelectedInvoiceId(activeInv.id);
+        setAmountRupees(activeInv.balanceDueRupees);
+      }
+    }
+  }, [isOpen, preSelectedInvoiceId, invoices]);
+
   if (!isOpen) return null;
 
   const currentInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
@@ -69,7 +79,7 @@ export function RecordOfflinePaymentDialog({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: activeOrganization?.id,
+          organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
           invoiceId: selectedInvoiceId,
           amountRupees: Number(amountRupees),
           paymentMethod,
@@ -149,7 +159,7 @@ export function RecordOfflinePaymentDialog({
                 <Input
                   type="number"
                   min={1}
-                  step={100}
+                  step={1}
                   value={amountRupees}
                   onChange={(e) => setAmountRupees(Number(e.target.value))}
                   required

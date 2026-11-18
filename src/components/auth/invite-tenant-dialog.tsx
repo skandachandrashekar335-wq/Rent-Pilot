@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UserPlus, Copy, Check, ExternalLink, X, AlertCircle, Loader2 } from "lucide-react";
+import { isValidUuid } from "@/lib/utils";
 
 interface InviteTenantDialogProps {
   isOpen: boolean;
@@ -48,7 +49,7 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: activeOrganization?.id || "default-org",
+          organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
           email: email.trim().toLowerCase(),
           fullName: fullName.trim() || undefined,
           phone: phone.trim() || undefined,

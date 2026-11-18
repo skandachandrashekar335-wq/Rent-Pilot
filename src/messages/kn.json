@@ -58,7 +58,12 @@
     "alreadyPaid": "ಈಗಾಗಲೇ ಪಾವತಿಸಿದ್ದೀರಾ?",
     "submitProof": "ರೆಫರೆನ್ಸ್ ಮತ್ತು ರಶೀದಿ ಸಲ್ಲಿಸಿ",
     "recentReceipt": "ಇತ್ತೀಚಿನ ರಶೀದಿ",
-    "reportIssue": "ನಿರ್ವಹಣಾ ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ"
+    "reportIssue": "ನಿರ್ವಹಣಾ ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ",
+    "receiptNumber": "ರಶೀದಿ ಸಂಖ್ಯೆ",
+    "verifiedAt": "ಪರಿಶೀಲಿಸಿದ ದಿನಾಂಕ",
+    "verifiedAmount": "ಪರಿಶೀಲಿಸಿದ ಮೊತ್ತ",
+    "transactionRef": "ವಹಿವಾಟು ಉಲ್ಲೇಖ",
+    "viewPaymentHistory": "ಸಂಪೂರ್ಣ ಪಾವತಿ ಇತಿಹಾಸ ವೀಕ್ಷಿಸಿ"
   },
   "maintenance": {
     "title": "ನಿರ್ವಹಣೆ ಮತ್ತು ಕಾರ್ಯಾಚರಣೆಗಳು",

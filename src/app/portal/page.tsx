@@ -58,7 +58,7 @@ export default function TenantHomePage() {
   useEffect(() => {
     async function loadPortalData() {
       try {
-        if (!user) return;
+        if (!user) throw new Error("Demo preview mode");
         const token = await user.getIdToken();
 
         const [tenancyRes, invoicesRes] = await Promise.all([
@@ -125,6 +125,24 @@ export default function TenantHomePage() {
         });
       } catch (err) {
         console.warn("Portal tenancy fetch error:", err);
+        setTenancyInfo({
+          tenancyId: "mock-tenancy-1",
+          unitNumber: "U-201",
+          propertyName: "Green Villa",
+          baseRentRupees: 16000,
+          tenantName: profile?.full_name || "Rahul Sharma",
+          activeInvoice: {
+            id: "inv-mock-1",
+            invoiceNumber: "INV-2026-11-U201",
+            totalDueRupees: 18500,
+            balanceDueRupees: 18500,
+            dueDate: "15 Nov 2026",
+            status: "ISSUED",
+            isOverdue: true,
+            electricityRupees: 1500,
+            waterRupees: 500,
+          },
+        });
       }
     }
 

@@ -141,7 +141,7 @@ export function ApplyIncrementDialog({
                 <Input
                   type="number"
                   min={currentRentRupees}
-                  step={100}
+                  step={1}
                   value={newRentRupees}
                   onChange={(e) => setNewRentRupees(Number(e.target.value))}
                   required

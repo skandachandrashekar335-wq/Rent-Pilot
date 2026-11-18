@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Home, X, AlertCircle, Loader2 } from "lucide-react";
+import { isValidUuid } from "@/lib/utils";
 
 interface AddUnitDialogProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ export function AddUnitDialog({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: activeOrganization?.id,
+          organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
           propertyId,
           unitNumber: unitNumber.trim(),
           floorNumber: floorNumber === "" ? null : Number(floorNumber),

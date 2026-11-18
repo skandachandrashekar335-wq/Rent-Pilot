@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Building2, X, AlertCircle, Loader2 } from "lucide-react";
+import { isValidUuid } from "@/lib/utils";
 
 interface AddPropertyDialogProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export function AddPropertyDialog({ isOpen, onClose, onSuccess }: AddPropertyDia
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: activeOrganization?.id,
+          organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
           name: name.trim(),
           propertyType,
           addressLine: addressLine.trim(),

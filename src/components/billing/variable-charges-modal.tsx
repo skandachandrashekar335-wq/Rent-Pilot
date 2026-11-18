@@ -248,7 +248,7 @@ export function VariableChargesModal({
                           <Input
                             type="number"
                             min={0}
-                            step={50}
+                            step={1}
                             value={row.electricityRupees}
                             onChange={(e) => handleChargeChange(idx, "electricityRupees", Number(e.target.value))}
                             className="h-8 text-xs font-mono text-right"
@@ -258,7 +258,7 @@ export function VariableChargesModal({
                           <Input
                             type="number"
                             min={0}
-                            step={50}
+                            step={1}
                             value={row.waterRupees}
                             onChange={(e) => handleChargeChange(idx, "waterRupees", Number(e.target.value))}
                             className="h-8 text-xs font-mono text-right"
@@ -268,7 +268,7 @@ export function VariableChargesModal({
                           <Input
                             type="number"
                             min={0}
-                            step={50}
+                            step={1}
                             value={row.maintenanceRupees}
                             onChange={(e) => handleChargeChange(idx, "maintenanceRupees", Number(e.target.value))}
                             className="h-8 text-xs font-mono text-right"
@@ -278,7 +278,7 @@ export function VariableChargesModal({
                           <Input
                             type="number"
                             min={0}
-                            step={50}
+                            step={1}
                             value={row.creditsRupees}
                             onChange={(e) => handleChargeChange(idx, "creditsRupees", Number(e.target.value))}
                             className="h-8 text-xs font-mono text-right text-status-paid-fg"

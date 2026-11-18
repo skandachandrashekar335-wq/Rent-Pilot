@@ -58,7 +58,12 @@
     "alreadyPaid": "पहले से भुगतान कर दिया है?",
     "submitProof": "संदर्भ और रसीद जमा करें",
     "recentReceipt": "हाल की रसीद",
-    "reportIssue": "रखरखाव समस्या की रिपोर्ट करें"
+    "reportIssue": "रखरखाव समस्या की रिपोर्ट करें",
+    "receiptNumber": "रसीद संख्या",
+    "verifiedAt": "सत्यापन की तिथि",
+    "verifiedAmount": "सत्यापित राशि",
+    "transactionRef": "लेनदेन संदर्भ",
+    "viewPaymentHistory": "पूरा भुगतान इतिहास देखें"
   },
   "maintenance": {
     "title": "रखरखाव और संचालन",
