@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ submissionId: string }> }

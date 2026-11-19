@@ -5,6 +5,8 @@ import { CreateMaintenanceRequestSchema } from "@/lib/validation/maintenance";
 import { createInAppNotification } from "@/lib/notifications/in-app";
 import { sendMaintenanceReportedToOwnerEmail } from "@/lib/notifications/brevo";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

@@ -5,6 +5,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateTenancySchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

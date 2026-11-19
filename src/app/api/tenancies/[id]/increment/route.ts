@@ -4,6 +4,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { ApplyRentIncrementSchema } from "@/lib/validation/rental";
 import { rupeesToPaise, computeNextIncrementDate } from "@/lib/domain/rent-increments";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

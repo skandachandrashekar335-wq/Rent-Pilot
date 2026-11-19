@@ -4,6 +4,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateUnitSchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

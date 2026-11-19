@@ -4,6 +4,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { UpdateUnitSchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

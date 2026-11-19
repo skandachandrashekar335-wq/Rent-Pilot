@@ -3,6 +3,8 @@ import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { MaintenanceUploadUrlSchema } from "@/lib/validation/maintenance";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

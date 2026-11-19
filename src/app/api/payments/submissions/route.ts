@@ -4,6 +4,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { SubmitPaymentProofSchema } from "@/lib/validation/billing";
 import { rupeesToPaise } from "@/lib/domain/billing";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

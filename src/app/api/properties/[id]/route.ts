@@ -3,6 +3,8 @@ import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { UpdatePropertySchema } from "@/lib/validation/rental";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

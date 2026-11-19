@@ -10,6 +10,8 @@ import {
 } from "@/lib/domain/billing";
 import { sendPaymentVerifiedReceipt } from "@/lib/notifications/brevo";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

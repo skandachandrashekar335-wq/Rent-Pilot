@@ -39,7 +39,6 @@ const apiNoStoreHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["firebase-admin"],
   async headers() {
     return [
       {

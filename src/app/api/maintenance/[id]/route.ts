@@ -6,6 +6,8 @@ import { rupeesToPaise, paiseToRupees } from "@/lib/domain/billing";
 import { createInAppNotification } from "@/lib/notifications/in-app";
 import { sendMaintenanceStatusUpdatedToTenantEmail } from "@/lib/notifications/brevo";
 
+export const dynamic = "force-dynamic";
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }

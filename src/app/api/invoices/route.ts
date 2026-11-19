@@ -3,6 +3,8 @@ import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { determineInvoiceStatus } from "@/lib/domain/billing";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);

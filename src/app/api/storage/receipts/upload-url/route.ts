@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 

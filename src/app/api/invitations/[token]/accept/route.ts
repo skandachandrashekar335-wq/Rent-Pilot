@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }

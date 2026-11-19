@@ -10,6 +10,8 @@ import {
 } from "@/lib/domain/billing";
 import { sendInvoiceIssuedNotification } from "@/lib/notifications/brevo";
 
+export const dynamic = "force-dynamic";
+
 interface TenancyWithUnitAndTenant {
   id: string;
   monthly_rent_paise: number;
