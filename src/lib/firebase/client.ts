@@ -8,6 +8,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mock-project.appspot.com",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:123456789:web:mockid",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 export function getFirebaseApp(): FirebaseApp {
@@ -20,6 +21,20 @@ export function getFirebaseApp(): FirebaseApp {
 export function getFirebaseAuth(): Auth {
   const app = getFirebaseApp();
   return getAuth(app);
+}
+
+export async function getFirebaseAnalytics() {
+  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) {
+    try {
+      const { getAnalytics, isSupported } = await import("firebase/analytics");
+      if (await isSupported()) {
+        return getAnalytics(getFirebaseApp());
+      }
+    } catch {
+      // Analytics is optional and non-blocking in restricted/server environments
+    }
+  }
+  return null;
 }
 
 export const googleProvider = new GoogleAuthProvider();
