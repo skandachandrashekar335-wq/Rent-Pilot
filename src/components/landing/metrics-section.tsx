@@ -71,12 +71,16 @@ const metrics = [
 ];
 
 export function MetricsSection() {
-  const [time, setTime] = useState(new Date());
+  const [timeStr, setTimeStr] = useState<string>("");
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000);
+    const updateTime = () => {
+      setTimeStr(new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -118,7 +122,9 @@ export function MetricsSection() {
               Live Health Invariant
             </span>
             <span className="text-foreground/30">|</span>
-            <span>{time.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })} IST</span>
+            <span suppressHydrationWarning>
+              {timeStr ? `${timeStr} IST` : "IST +05:30"}
+            </span>
           </div>
         </div>
         
