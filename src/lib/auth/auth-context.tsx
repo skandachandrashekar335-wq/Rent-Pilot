@@ -8,6 +8,7 @@ import {
   onIdTokenChanged,
 } from "firebase/auth";
 import { getFirebaseAuth, googleProvider } from "@/lib/firebase/client";
+import { authFetch } from "@/lib/api-client";
 
 export interface Profile {
   id: string;
@@ -78,15 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const syncProfile = useCallback(async (firebaseUser: User) => {
+  const syncProfile = useCallback(async () => {
     try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/auth/sync", {
+      const res = await authFetch("/api/auth/sync", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
       });
 
       if (!res.ok) {
@@ -121,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
         if (currentUser) {
           setUser(currentUser);
-          await syncProfile(currentUser);
+          await syncProfile();
         } else {
           setUser(null);
           setProfile(null);
@@ -146,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const auth = getFirebaseAuth();
       const result = await signInWithPopup(auth, googleProvider);
       setUser(result.user);
-      await syncProfile(result.user);
+      await syncProfile();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google authentication failed";
       console.error("Google sign-in error:", err);
@@ -175,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async () => {
     if (user) {
-      await syncProfile(user);
+      await syncProfile();
     }
   };
 

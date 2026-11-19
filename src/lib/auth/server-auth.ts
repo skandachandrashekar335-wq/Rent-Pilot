@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { verifyFirebaseIdToken } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
 export interface AuthenticatedUser {
@@ -35,7 +35,7 @@ export async function verifyServerAuth(
   let picture: string | null = null;
 
   try {
-    const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken, true);
+    const decoded = await verifyFirebaseIdToken(idToken);
     uid = decoded.uid;
     email = (decoded.email || "").toLowerCase();
     name = (decoded.name as string) || null;

@@ -30,7 +30,13 @@ export function getFirebaseAdminApp(): App {
     privateKey &&
     privateKey.includes("-----BEGIN PRIVATE KEY-----");
 
-  if (isRealCert && projectId) {
+  if (clientEmail && projectId && !clientEmail.includes(projectId)) {
+    console.warn(
+      `[Firebase Admin] Notice: FIREBASE_ADMIN_CLIENT_EMAIL (${clientEmail}) does not match projectId (${projectId}). Using public key token verification for ${projectId}.`
+    );
+  }
+
+  if (isRealCert && projectId && clientEmail.includes(projectId)) {
     try {
       return initializeApp({
         credential: cert({
@@ -54,5 +60,19 @@ export function getFirebaseAdminAuth(): Auth {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getAuth } = require("firebase-admin/auth");
   return getAuth(getFirebaseAdminApp());
+}
+
+export async function verifyFirebaseIdToken(idToken: string) {
+  const auth = getFirebaseAdminAuth();
+  // Validates RS256 signature, expiry, aud, and iss against Google public x509 certs.
+  // We do not pass checkRevoked = true to avoid requiring OAuth2 service account network calls.
+  try {
+    return await auth.verifyIdToken(idToken, false);
+  } catch (err: unknown) {
+    const errorCode = (err as { code?: string })?.code || "unknown";
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[auth] verifyIdToken failed [code: ${errorCode}]:`, errorMessage);
+    throw err;
+  }
 }
 
