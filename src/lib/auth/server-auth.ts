@@ -33,7 +33,7 @@ export async function verifyServerAuth(
   let email: string;
 
   try {
-    const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken);
+    const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken, true);
     uid = decoded.uid;
     email = (decoded.email || "").toLowerCase();
   } catch {

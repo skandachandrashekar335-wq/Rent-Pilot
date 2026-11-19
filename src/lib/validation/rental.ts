@@ -24,9 +24,9 @@ export const CreatePropertySchema = z.object({
   totalFloors: z.coerce.number().int().min(1).max(50).default(1),
   facilities: z.array(z.string()).default([]),
   notes: z.string().optional().nullable(),
-});
+}).strict();
 
-export const UpdatePropertySchema = CreatePropertySchema.partial();
+export const UpdatePropertySchema = CreatePropertySchema.partial().strict();
 
 export const CreateUnitSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
@@ -41,9 +41,9 @@ export const CreateUnitSchema = z.object({
   baseRentRupees: z.coerce.number().min(0, "Rent cannot be negative"),
   securityDepositRupees: z.coerce.number().min(0, "Deposit cannot be negative").default(0),
   occupancyStatus: OccupancyStatusEnum.default("VACANT"),
-});
+}).strict();
 
-export const UpdateUnitSchema = CreateUnitSchema.partial();
+export const UpdateUnitSchema = CreateUnitSchema.partial().strict();
 
 export const CreateTenantSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
@@ -52,7 +52,7 @@ export const CreateTenantSchema = z.object({
   phone: z.string().trim().optional().nullable(),
   emergencyContact: z.string().trim().optional().nullable(),
   notes: z.string().optional().nullable(),
-});
+}).strict();
 
 export const RentIncrementScheduleInputSchema = z.object({
   incrementType: IncrementTypeEnum.default("PERCENTAGE"),
@@ -60,7 +60,7 @@ export const RentIncrementScheduleInputSchema = z.object({
   intervalMonths: z.coerce.number().int().min(1).max(60).default(12),
   nextIncrementDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD"),
   autoApply: z.boolean().default(false),
-});
+}).strict();
 
 export const CreateTenancySchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
@@ -78,7 +78,7 @@ export const CreateTenancySchema = z.object({
   status: TenancyStatusEnum.default("ACTIVE"),
   // Optional increment schedule configuration
   incrementSchedule: RentIncrementScheduleInputSchema.optional().nullable(),
-}).refine(
+}).strict().refine(
   (data) => {
     if (data.endDate && data.startDate) {
       return new Date(data.endDate) > new Date(data.startDate);
@@ -95,13 +95,13 @@ export const ApplyRentIncrementSchema = z.object({
   newRentRupees: z.coerce.number().positive("New rent must be positive"),
   effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Effective date must be YYYY-MM-DD"),
   notes: z.string().optional().nullable(),
-});
+}).strict();
 
 export const EndTenancySchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD"),
   status: z.enum(["COMPLETED", "TERMINATED"]).default("COMPLETED"),
   terminationReason: z.string().optional().nullable(),
-});
+}).strict();
 
 export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
 export type UpdatePropertyInput = z.infer<typeof UpdatePropertySchema>;

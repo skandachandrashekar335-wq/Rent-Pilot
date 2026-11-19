@@ -78,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isDemoModeAllowed =
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_ALLOW_DEV_AUTH_BYPASS === "true";
+
   const syncProfile = useCallback(async (firebaseUser: User) => {
     try {
       const token = await firebaseUser.getIdToken();
@@ -128,13 +132,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser);
           await syncProfile(currentUser);
         } else {
-          const demoRole = typeof window !== "undefined" ? localStorage.getItem("rentpilot_demo_role") : null;
-          if (demoRole === "owner") {
-            signInAsDemoOwner();
-            return;
-          } else if (demoRole === "tenant") {
-            signInAsDemoTenant();
-            return;
+          if (isDemoModeAllowed) {
+            const demoRole = typeof window !== "undefined" ? localStorage.getItem("rentpilot_demo_role") : null;
+            if (demoRole === "owner") {
+              signInAsDemoOwner();
+              return;
+            } else if (demoRole === "tenant") {
+              signInAsDemoTenant();
+              return;
+            }
+          } else if (typeof window !== "undefined") {
+            localStorage.removeItem("rentpilot_demo_role");
           }
           setUser(null);
           setProfile(null);
@@ -151,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Firebase auth init error:", err);
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncProfile]);
 
   const signInWithGoogle = async () => {
@@ -195,6 +204,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsDemoOwner = () => {
+    if (!isDemoModeAllowed) {
+      console.warn("Demo mode is disabled in production environments.");
+      return;
+    }
     if (typeof window !== "undefined") {
       localStorage.setItem("rentpilot_demo_role", "owner");
     }
@@ -245,6 +258,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsDemoTenant = () => {
+    if (!isDemoModeAllowed) {
+      console.warn("Demo mode is disabled in production environments.");
+      return;
+    }
     if (typeof window !== "undefined") {
       localStorage.setItem("rentpilot_demo_role", "tenant");
     }

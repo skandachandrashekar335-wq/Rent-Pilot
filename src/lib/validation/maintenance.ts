@@ -43,7 +43,7 @@ export const CreateMaintenanceRequestSchema = z.object({
   category: MaintenanceCategoryEnum,
   priority: MaintenancePriorityEnum.default("MEDIUM"),
   photoPaths: z.array(z.string().min(3)).max(4, "Maximum 4 photos allowed per ticket").default([]),
-});
+}).strict();
 
 export const UpdateMaintenanceRequestSchema = z.object({
   status: MaintenanceStatusEnum.optional(),
@@ -52,7 +52,7 @@ export const UpdateMaintenanceRequestSchema = z.object({
   repairCostRupees: z.coerce.number().min(0, "Repair cost cannot be negative").optional(),
   paidBy: MaintenancePaidByEnum.optional(),
   resolutionNotes: z.string().trim().max(1000).optional().nullable(),
-});
+}).strict();
 
 export const MaintenanceUploadUrlSchema = z.object({
   filename: z.string().trim().min(1, "Filename is required"),
@@ -60,7 +60,7 @@ export const MaintenanceUploadUrlSchema = z.object({
     message: "Only JPEG, PNG, and WebP images are permitted for maintenance photos",
   }),
   fileSizeBytes: z.coerce.number().int().positive().max(5242880, "Image size exceeds 5 MB limit"),
-});
+}).strict();
 
 export type CreateMaintenanceRequestInput = z.infer<typeof CreateMaintenanceRequestSchema>;
 export type UpdateMaintenanceRequestInput = z.infer<typeof UpdateMaintenanceRequestSchema>;

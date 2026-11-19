@@ -37,7 +37,7 @@ await db.payment_proofs.create({
     label: "Reliability Heartbeat",
     code: `# GitHub Actions 48-Hour Heartbeat & Idempotent Trigger
 curl -s -f -X GET https://rentpilot-nine.vercel.app/api/health \\
-  -H "Authorization: Bearer $CRON_SECRET"
+  -H "Authorization: Bearer $HEARTBEAT_TOKEN"
 
 # Response:
 # {

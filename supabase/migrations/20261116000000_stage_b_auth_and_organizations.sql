@@ -4,7 +4,7 @@
 
 -- 1. Helper Functions for Firebase Auth & Profile Resolution
 CREATE OR REPLACE FUNCTION public.current_firebase_uid() 
-RETURNS TEXT STABLE LANGUAGE sql AS $$
+RETURNS TEXT STABLE SECURITY DEFINER SET search_path = public, pg_temp LANGUAGE sql AS $$
   SELECT COALESCE(
     (auth.jwt() ->> 'sub'),
     NULLIF(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')
@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_firebase_uid ON public.profiles(firebase
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 
 CREATE OR REPLACE FUNCTION public.get_user_profile_id()
-RETURNS UUID STABLE LANGUAGE sql AS $$
+RETURNS UUID STABLE SECURITY DEFINER SET search_path = public, pg_temp LANGUAGE sql AS $$
   SELECT id FROM public.profiles WHERE firebase_uid = public.current_firebase_uid() LIMIT 1;
 $$;
 

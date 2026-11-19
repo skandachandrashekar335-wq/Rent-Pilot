@@ -63,27 +63,20 @@ ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_delivery_logs ENABLE ROW LEVEL SECURITY;
 
--- Idempotency Keys: Staff can view; service role / functions manage
-CREATE POLICY "idempotency_keys_select_authenticated" ON public.idempotency_keys
+-- Idempotency Keys: Managed strictly via service-role in background jobs.
+-- RLS is enabled with default-deny to prevent browser/client tampering.
+
+-- Job Execution Logs: Staff can view system job runs if active organization staff
+CREATE POLICY "job_execution_logs_select_staff" ON public.job_execution_logs
   FOR SELECT TO authenticated
-  USING (true);
-
-CREATE POLICY "idempotency_keys_insert_authenticated" ON public.idempotency_keys
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "idempotency_keys_update_authenticated" ON public.idempotency_keys
-  FOR UPDATE TO authenticated
-  USING (true);
-
--- Job Execution Logs: Staff can view logs
-CREATE POLICY "job_execution_logs_select_authenticated" ON public.job_execution_logs
-  FOR SELECT TO authenticated
-  USING (true);
-
-CREATE POLICY "job_execution_logs_insert_authenticated" ON public.job_execution_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.organization_memberships
+      WHERE profile_id = public.get_user_profile_id()
+      AND role IN ('OWNER', 'MANAGER')
+      AND status = 'ACTIVE'
+    )
+  );
 
 -- Message Delivery Logs: Scoped to organization membership
 CREATE POLICY "delivery_logs_select_org_staff" ON public.message_delivery_logs
