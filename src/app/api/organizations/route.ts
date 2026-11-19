@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateOrganizationSchema } from "@/lib/validation/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    let uid: string;
-
-    try {
-      const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken);
-      uid = decoded.uid;
-    } catch {
-      if (process.env.NODE_ENV === "development") {
-        uid = "dev-firebase-uid";
-      } else {
-        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-      }
+    const { auth, errorResponse } = await verifyServerAuth(req);
+    if (!auth || errorResponse) {
+      return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
     const body = await req.json();
@@ -32,23 +18,12 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient();
 
-    // Get Profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("firebase_uid", uid)
-      .single();
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found. Please sync auth first." }, { status: 404 });
-    }
-
     // Insert Organization
     const { data: organization, error: orgError } = await supabase
       .from("organizations")
       .insert({
         name: parsed.data.name,
-        owner_profile_id: profile.id,
+        owner_profile_id: auth.profileId,
         billing_day_of_month: parsed.data.billingDayOfMonth,
         currency: parsed.data.currency,
         timezone: parsed.data.timezone,
@@ -57,7 +32,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (orgError) {
-      return NextResponse.json({ error: orgError.message }, { status: 500 });
+      console.error("[Organizations API Error]", orgError);
+      return NextResponse.json({ error: "Failed to create organization" }, { status: 500 });
     }
 
     // Insert Owner Membership
@@ -65,7 +41,7 @@ export async function POST(req: NextRequest) {
       .from("organization_memberships")
       .insert({
         organization_id: organization.id,
-        profile_id: profile.id,
+        profile_id: auth.profileId,
         role: "OWNER",
         status: "ACTIVE",
       })
@@ -73,7 +49,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (memError) {
-      return NextResponse.json({ error: memError.message }, { status: 500 });
+      console.error("[Organization Membership Error]", memError);
+      return NextResponse.json({ error: "Failed to create organization membership" }, { status: 500 });
     }
 
     return NextResponse.json({

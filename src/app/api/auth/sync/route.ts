@@ -26,9 +26,15 @@ export async function POST(req: NextRequest) {
       name = decoded.name || null;
       picture = decoded.picture || null;
     } catch {
-      // Development or test fallback if Firebase Admin credentials are not yet configured in local env
+      // Strictly disabled in production, on Vercel, or without explicit flag
+      const isDevAuthAllowed =
+        process.env.NODE_ENV === "development" &&
+        !process.env.VERCEL &&
+        !process.env.VERCEL_ENV &&
+        process.env.ALLOW_DEV_AUTH_BYPASS === "true";
+
       const body = await req.json().catch(() => ({}));
-      if (process.env.NODE_ENV === "development" && body.devUser) {
+      if (isDevAuthAllowed && body.devUser) {
         uid = body.devUser.uid || "dev-firebase-uid";
         email = body.devUser.email || "dev@rentpilot.app";
         name = body.devUser.name || "Development User";

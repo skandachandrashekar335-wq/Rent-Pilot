@@ -23,7 +23,8 @@ export async function PATCH(req: NextRequest) {
         .eq("is_read", false);
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("[Notifications Read All Error]", error);
+        return NextResponse.json({ error: "Failed to update notifications" }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, message: "All notifications marked as read" });
@@ -35,7 +36,8 @@ export async function PATCH(req: NextRequest) {
         .eq("recipient_profile_id", auth.profileId);
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("[Notification Read Single Error]", error);
+        return NextResponse.json({ error: "Failed to update notification" }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, message: "Notification marked as read" });

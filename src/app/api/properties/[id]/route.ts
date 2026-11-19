@@ -53,6 +53,10 @@ export async function PATCH(
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = UpdatePropertySchema.safeParse(body);
     if (!parsed.success) {
@@ -83,7 +87,8 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[Property Update Error]", error);
+      return NextResponse.json({ error: "Failed to update property" }, { status: 500 });
     }
 
     return NextResponse.json({ property });
@@ -104,6 +109,10 @@ export async function DELETE(
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const supabase = createAdminSupabaseClient();
     // Soft archive property
     const { error } = await supabase
@@ -113,7 +122,8 @@ export async function DELETE(
       .eq("organization_id", auth.organizationId!);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[Property Archive Error]", error);
+      return NextResponse.json({ error: "Failed to archive property" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: "Property archived successfully" });

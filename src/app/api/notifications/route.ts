@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
       .limit(30);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[Notifications GET Error]", error);
+      return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });
     }
 
     const unreadCount = (notifications || []).filter((n) => !n.is_read).length;

@@ -50,18 +50,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = CreateTenancySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Validation failed" }, { status: 400 });
     }
 
-    const orgId = parsed.data.organizationId || auth.organizationId;
-    if (!orgId) {
-      return NextResponse.json({ error: "Organization required" }, { status: 400 });
-    }
-
+    const orgId = auth.organizationId;
     const supabase = createAdminSupabaseClient();
+
+    // Verify unit belongs to this organization
+    const { data: unit } = await supabase
+      .from("units")
+      .select("id")
+      .eq("id", parsed.data.unitId)
+      .eq("organization_id", orgId)
+      .single();
+
+    if (!unit) {
+      return NextResponse.json({ error: "Unit not found in your organization" }, { status: 404 });
+    }
 
     // 1. Resolve or Create Tenant Record
     let tenantId = parsed.data.tenantId;

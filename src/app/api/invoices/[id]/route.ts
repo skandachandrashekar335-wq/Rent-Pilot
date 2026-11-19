@@ -44,8 +44,12 @@ export async function GET(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    // Tenant authorization check
-    if (!auth.isOwnerOrManager) {
+    // Role-based authorization & multi-tenant isolation
+    if (auth.isOwnerOrManager) {
+      if (invoice.organization_id !== auth.organizationId) {
+        return NextResponse.json({ error: "Access denied: Invoice belongs to another organization" }, { status: 403 });
+      }
+    } else {
       const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null } | null } | null;
       const tenantProfileId = typedTenancy?.tenant?.profile_id;
       if (tenantProfileId !== auth.profileId) {

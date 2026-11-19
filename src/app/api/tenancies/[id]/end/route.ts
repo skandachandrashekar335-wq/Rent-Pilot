@@ -14,6 +14,10 @@ export async function POST(
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = EndTenancySchema.safeParse(body);
     if (!parsed.success) {

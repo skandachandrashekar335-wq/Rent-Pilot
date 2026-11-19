@@ -19,10 +19,21 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient();
 
-    // Verify invoice exists
+    // Verify invoice exists and fetch tenancy info for authorization
     const { data: invoice, error: invErr } = await supabase
       .from("invoices")
-      .select("id, organization_id, total_due_paise, balance_due_paise, status")
+      .select(`
+        id,
+        organization_id,
+        tenancy_id,
+        total_due_paise,
+        balance_due_paise,
+        status,
+        tenancy:tenancies(
+          id,
+          tenant:tenants(profile_id)
+        )
+      `)
       .eq("id", parsed.data.invoiceId)
       .single();
 
@@ -34,7 +45,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Cannot submit payment for an invoice that is already ${invoice.status.toLowerCase()}` }, { status: 400 });
     }
 
-    const orgId = parsed.data.organizationId || invoice.organization_id;
+    // Role check: Tenant can only submit for their own tenancy's invoice
+    if (!auth.isOwnerOrManager) {
+      const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null } | null } | null;
+      if (typedTenancy?.tenant?.profile_id !== auth.profileId) {
+        return NextResponse.json({ error: "Access denied: You can only submit payment proofs for your own tenancy invoices" }, { status: 403 });
+      }
+    }
+
+    const orgId = invoice.organization_id;
+    const tenancyId = invoice.tenancy_id;
     const amountPaise = rupeesToPaise(parsed.data.amountRupees);
 
     // Insert payment submission (Protected by partial unique index on (organization_id, normalized_reference))
@@ -43,7 +63,7 @@ export async function POST(req: NextRequest) {
       .insert({
         organization_id: orgId,
         invoice_id: invoice.id,
-        tenancy_id: parsed.data.tenancyId,
+        tenancy_id: tenancyId,
         submitted_by_profile_id: auth.profileId,
         amount_paise: Number(amountPaise),
         payment_method: "UPI",

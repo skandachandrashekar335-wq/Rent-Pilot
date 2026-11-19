@@ -12,17 +12,28 @@ export function getFirebaseAdminApp(): App {
   let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
   if (privateKey) {
+    // Strip accidental outer quotes if pasted with quotes into environment variables
+    if (
+      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+      (privateKey.startsWith("'") && privateKey.endsWith("'"))
+    ) {
+      privateKey = privateKey.slice(1, -1);
+    }
     privateKey = privateKey.replace(/\\n/g, "\n");
   }
 
   if (projectId && clientEmail && privateKey) {
-    return initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    });
+    try {
+      return initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+      });
+    } catch (certErr) {
+      console.error("[Firebase Admin] Certificate initialization warning:", certErr);
+    }
   }
 
   // Fallback for local development or build environments with project ID

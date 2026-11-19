@@ -10,6 +10,12 @@ export interface AuthenticatedUser {
   isOwnerOrManager: boolean;
 }
 
+const isDevAuthBypassAllowed =
+  process.env.NODE_ENV === "development" &&
+  !process.env.VERCEL &&
+  !process.env.VERCEL_ENV &&
+  process.env.ALLOW_DEV_AUTH_BYPASS === "true";
+
 export async function verifyServerAuth(
   req: NextRequest,
   requiredOrgId?: string
@@ -31,7 +37,7 @@ export async function verifyServerAuth(
     uid = decoded.uid;
     email = (decoded.email || "").toLowerCase();
   } catch {
-    if (process.env.NODE_ENV === "development") {
+    if (isDevAuthBypassAllowed) {
       uid = "dev-firebase-uid";
       email = "dev@rentpilot.app";
     } else {
@@ -52,7 +58,7 @@ export async function verifyServerAuth(
     .single();
 
   // If in dev and no profile exists yet, auto-create mock profile
-  if (!profile && process.env.NODE_ENV === "development") {
+  if (!profile && isDevAuthBypassAllowed) {
     const { data: newProfile } = await supabase
       .from("profiles")
       .insert({
@@ -99,7 +105,7 @@ export async function verifyServerAuth(
     if (memberships && memberships.length > 0) {
       activeOrgId = memberships[0].organization_id;
       isOwnerOrManager = memberships.some((m) => m.role === "OWNER" || m.role === "MANAGER");
-    } else if (process.env.NODE_ENV === "development") {
+    } else if (isDevAuthBypassAllowed) {
       // Auto-provision dev organization if none exists
       let { data: defaultOrg } = await supabase
         .from("organizations")

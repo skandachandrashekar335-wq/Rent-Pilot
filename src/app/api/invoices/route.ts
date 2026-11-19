@@ -50,9 +50,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ invoices: [] });
       }
 
+      const { data: tenantTenancies } = await supabase
+        .from("tenancies")
+        .select("id")
+        .eq("tenant_id", tenant.id);
+
+      const tenancyIds = (tenantTenancies || []).map((t) => t.id);
+      if (tenancyIds.length === 0) {
+        return NextResponse.json({ invoices: [] });
+      }
+
       query = query
         .neq("status", "DRAFT")
-        .eq("tenancy.tenant_id", tenant.id);
+        .in("tenancy_id", tenancyIds);
     }
 
     if (yearFilter) query = query.eq("billing_period_year", Number(yearFilter));

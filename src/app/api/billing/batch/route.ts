@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const year = Number(searchParams.get("year")) || new Date().getFullYear();
     const month = Number(searchParams.get("month")) || new Date().getMonth() + 1;
@@ -129,13 +133,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = BillingBatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Validation failed" }, { status: 400 });
     }
 
-    const orgId = parsed.data.organizationId || auth.organizationId!;
+    const orgId = auth.organizationId;
     const supabase = createAdminSupabaseClient();
 
     // Ensure Billing Cycle exists

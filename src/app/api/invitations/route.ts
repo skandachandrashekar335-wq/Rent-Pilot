@@ -1,28 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateTenantInvitationSchema } from "@/lib/validation/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { auth, errorResponse } = await verifyServerAuth(req);
+    if (!auth || errorResponse) {
+      return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    let uid: string;
-
-    try {
-      const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken);
-      uid = decoded.uid;
-    } catch {
-      if (process.env.NODE_ENV === "development") {
-        uid = "dev-firebase-uid";
-      } else {
-        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-      }
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Only active organization owners or managers can issue invitations" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -33,27 +23,18 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient();
 
-    // Verify caller is an active OWNER of an organization
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("firebase_uid", uid)
-      .single();
+    // Verify unit belongs to the caller's organization if specified
+    if (parsed.data.unitId) {
+      const { data: unit } = await supabase
+        .from("units")
+        .select("id")
+        .eq("id", parsed.data.unitId)
+        .eq("organization_id", auth.organizationId)
+        .single();
 
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    const { data: membership } = await supabase
-      .from("organization_memberships")
-      .select("organization_id, role")
-      .eq("profile_id", profile.id)
-      .eq("role", "OWNER")
-      .eq("status", "ACTIVE")
-      .single();
-
-    if (!membership) {
-      return NextResponse.json({ error: "Only active organization owners can issue invitations" }, { status: 403 });
+      if (!unit) {
+        return NextResponse.json({ error: "Specified unit not found in your organization" }, { status: 404 });
+      }
     }
 
     // Generate secure random token and SHA-256 hash
@@ -66,19 +47,20 @@ export async function POST(req: NextRequest) {
     const { data: invitation, error: invError } = await supabase
       .from("tenant_invitations")
       .insert({
-        organization_id: membership.organization_id,
+        organization_id: auth.organizationId,
         unit_id: parsed.data.unitId || null,
         invited_email: parsed.data.invitedEmail,
         token_hash: tokenHash,
         status: "PENDING",
         expires_at: expiresAt.toISOString(),
-        created_by: profile.id,
+        created_by: auth.profileId,
       })
       .select()
       .single();
 
     if (invError) {
-      return NextResponse.json({ error: invError.message }, { status: 500 });
+      console.error("[Invitations API Error]", invError);
+      return NextResponse.json({ error: "Failed to generate invitation" }, { status: 500 });
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

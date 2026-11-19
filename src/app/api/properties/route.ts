@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[Properties GET Error]", error);
+      return NextResponse.json({ error: "Failed to fetch properties" }, { status: 500 });
     }
 
     return NextResponse.json({ properties: properties || [] });
@@ -57,16 +58,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
+    if (!auth.isOwnerOrManager || !auth.organizationId) {
+      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = CreatePropertySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Validation failed" }, { status: 400 });
     }
 
-    const orgId = parsed.data.organizationId || auth.organizationId;
-    if (!orgId) {
-      return NextResponse.json({ error: "Organization required" }, { status: 400 });
-    }
+    const orgId = auth.organizationId;
 
     const supabase = createAdminSupabaseClient();
     const { data: property, error } = await supabase

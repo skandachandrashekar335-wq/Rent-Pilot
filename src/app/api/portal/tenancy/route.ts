@@ -72,7 +72,8 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (tenancyErr) {
-      return NextResponse.json({ error: tenancyErr.message }, { status: 500 });
+      console.error("[Portal Tenancy Fetch Error]", tenancyErr);
+      return NextResponse.json({ error: "Failed to fetch tenancy details" }, { status: 500 });
     }
 
     return NextResponse.json({
