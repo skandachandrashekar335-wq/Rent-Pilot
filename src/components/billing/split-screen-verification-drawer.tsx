@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { paiseToRupees } from "@/lib/domain/billing";
+import { authFetch } from "@/lib/api-client";
 
 export interface VerificationItem {
   id: string;
@@ -63,10 +64,7 @@ export function SplitScreenVerificationDrawer({
       setLoadingUrl(true);
       try {
         if (!user) return;
-        const token = await user.getIdToken();
-        const res = await fetch(`/api/storage/receipts/${item!.id}/signed-url`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authFetch(`/api/storage/receipts/${item!.id}/signed-url`);
         if (res.ok) {
           const data = await res.json();
           setSignedUrl(data.signedUrl);
@@ -90,12 +88,10 @@ export function SplitScreenVerificationDrawer({
     setError(null);
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
-      const res = await fetch(`/api/payments/submissions/${item.id}/review`, {
+      const res = await authFetch(`/api/payments/submissions/${item.id}/review`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ action: "APPROVE" }),
@@ -119,12 +115,10 @@ export function SplitScreenVerificationDrawer({
     setError(null);
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
-      const res = await fetch(`/api/payments/submissions/${item.id}/review`, {
+      const res = await authFetch(`/api/payments/submissions/${item.id}/review`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

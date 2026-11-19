@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UserCheck, X, AlertCircle, Copy, Check, ExternalLink, Loader2, TrendingUp } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
 
 interface CreateTenancyDialogProps {
   isOpen: boolean;
@@ -69,7 +70,6 @@ export function CreateTenancyDialog({
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
       const payload: Record<string, unknown> = {
         organizationId: isValidUuid(activeOrganization?.id) ? activeOrganization?.id : undefined,
@@ -94,10 +94,9 @@ export function CreateTenancyDialog({
         };
       }
 
-      const res = await fetch("/api/tenancies", {
+      const res = await authFetch("/api/tenancies", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -166,7 +165,7 @@ export function CreateTenancyDialog({
                     Tenant Full Name <span className="text-status-overdue-fg">*</span>
                   </label>
                   <Input
-                    placeholder="e.g. Rahul Sharma"
+                    placeholder="e.g. Tenant Full Name"
                     value={tenantName}
                     onChange={(e) => setTenantName(e.target.value)}
                     required

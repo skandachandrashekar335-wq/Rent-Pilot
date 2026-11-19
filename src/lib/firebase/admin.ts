@@ -9,22 +9,28 @@ export function getFirebaseAdminApp(): App {
     return apps[0]!;
   }
 
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const rawProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const projectId =
+    rawProjectId && rawProjectId !== "your-project-id"
+      ? rawProjectId
+      : (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "rent-pilot-14fb8");
+
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
   if (privateKey) {
     // Strip accidental outer quotes if pasted with quotes into environment variables
-    if (
-      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
-      (privateKey.startsWith("'") && privateKey.endsWith("'"))
-    ) {
-      privateKey = privateKey.slice(1, -1);
-    }
-    privateKey = privateKey.replace(/\\n/g, "\n");
+    privateKey = privateKey.replace(/^["']|["']$/g, "").replace(/\\n/g, "\n");
   }
 
-  if (projectId && clientEmail && privateKey) {
+  const isRealCert =
+    clientEmail &&
+    !clientEmail.includes("your-project-id") &&
+    !clientEmail.includes("xxxxx") &&
+    privateKey &&
+    privateKey.includes("-----BEGIN PRIVATE KEY-----");
+
+  if (isRealCert && projectId) {
     try {
       return initializeApp({
         credential: cert({
@@ -34,13 +40,13 @@ export function getFirebaseAdminApp(): App {
         }),
       });
     } catch (certErr) {
-      console.error("[Firebase Admin] Certificate initialization warning:", certErr);
+      console.warn("[Firebase Admin] Certificate initialization warning, falling back to projectId:", certErr);
     }
   }
 
-  // Fallback for local development or build environments with project ID
+  // Fallback initializing with verified Project ID (supports public token verification)
   return initializeApp({
-    projectId: projectId || "rentpilot-fallback",
+    projectId: projectId || "rent-pilot-14fb8",
   });
 }
 

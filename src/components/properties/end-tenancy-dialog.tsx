@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogOut, X, AlertCircle, Loader2 } from "lucide-react";
+import { authFetch } from "@/lib/api-client";
 
 interface EndTenancyDialogProps {
   isOpen: boolean;
@@ -40,12 +41,10 @@ export function EndTenancyDialog({
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
-      const res = await fetch(`/api/tenancies/${tenancyId}/end`, {
+      const res = await authFetch(`/api/tenancies/${tenancyId}/end`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

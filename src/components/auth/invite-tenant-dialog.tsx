@@ -1,12 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UserPlus, Copy, Check, ExternalLink, X, AlertCircle, Loader2 } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
+
+interface AvailableUnit {
+  id: string;
+  unit_number: string;
+  propertyName: string;
+}
 
 interface InviteTenantDialogProps {
   isOpen: boolean;
@@ -18,7 +25,9 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [unitId, setUnitId] = useState("mock-unit-101");
+  const [unitId, setUnitId] = useState("");
+  const [availableUnits, setAvailableUnits] = useState<AvailableUnit[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedInvite, setGeneratedInvite] = useState<{
@@ -28,6 +37,32 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
     email: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingUnits(true);
+      authFetch("/api/properties")
+        .then((r) => r.json())
+        .then((data) => {
+          const units: AvailableUnit[] = [];
+          (data.properties || []).forEach((p: { name: string; units?: Array<{ id: string; unit_number: string }> }) => {
+            (p.units || []).forEach((u) => {
+              units.push({
+                id: u.id,
+                unit_number: u.unit_number,
+                propertyName: p.name,
+              });
+            });
+          });
+          setAvailableUnits(units);
+          if (units.length > 0) {
+            setUnitId(units[0].id);
+          }
+        })
+        .catch((err) => console.warn("Failed to load units for invitation:", err))
+        .finally(() => setLoadingUnits(false));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -41,11 +76,9 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
         throw new Error("You must be authenticated to issue tenant invitations.");
       }
 
-      const token = await user.getIdToken();
-      const res = await fetch("/api/invitations", {
+      const res = await authFetch("/api/invitations", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -53,7 +86,7 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
           email: email.trim().toLowerCase(),
           fullName: fullName.trim() || undefined,
           phone: phone.trim() || undefined,
-          unitId: unitId,
+          unitId: unitId || undefined,
         }),
       });
 
@@ -147,7 +180,7 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
                   Full Name (Optional)
                 </label>
                 <Input
-                  placeholder="e.g. Rahul Sharma"
+                  placeholder="e.g. Tenant Full Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="text-xs"
@@ -175,10 +208,17 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
                   onChange={(e) => setUnitId(e.target.value)}
                   className="w-full h-9 rounded-md border border-input bg-surface px-3 py-1 text-xs text-text-primary shadow-xs focus-visible:outline-xs focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="mock-unit-101">Unit 101 — Green Villa (1st Floor)</option>
-                  <option value="mock-unit-102">Unit 102 — Green Villa (1st Floor)</option>
-                  <option value="mock-unit-201">Unit 201 — Green Villa (2nd Floor)</option>
-                  <option value="mock-unit-01">Unit 01 — Lakeview House (Ground)</option>
+                  {loadingUnits ? (
+                    <option value="">Loading units...</option>
+                  ) : availableUnits.length === 0 ? (
+                    <option value="">No units configured yet — Add a unit first</option>
+                  ) : (
+                    availableUnits.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        Unit {u.unit_number} — {u.propertyName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

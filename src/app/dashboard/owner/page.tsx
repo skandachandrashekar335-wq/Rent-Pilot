@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/billing";
 import { InviteTenantDialog } from "@/components/auth/invite-tenant-dialog";
 import { SplitScreenVerificationDrawer } from "@/components/billing/split-screen-verification-drawer";
+import { authFetch } from "@/lib/api-client";
 import { RecordOfflinePaymentDialog } from "@/components/billing/record-offline-payment-dialog";
 import { VariableChargesModal } from "@/components/billing/variable-charges-modal";
 
@@ -68,14 +69,18 @@ export default function OwnerOverviewPage() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      if (!user) throw new Error("Demo preview mode");
-      const token = await user.getIdToken();
+      if (!user) {
+        setInvoices([]);
+        setPendingVerifications([]);
+        setLoading(false);
+        return;
+      }
 
-      const res = await fetch("/api/invoices", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch invoices");
+      const res = await authFetch("/api/invoices");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to fetch invoices");
+      }
       const data = await res.json();
       const invs = (data.invoices || []) as OverviewInvoice[];
       setInvoices(invs);
@@ -109,29 +114,15 @@ export default function OwnerOverviewPage() {
       setPendingVerifications(verifications);
 
       // Stage F: Demand-driven background reconciliation on owner dashboard mount
-      fetch("/api/billing/reconcile", {
+      authFetch("/api/billing/reconcile", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
       }).catch((reconcileErr) => {
         console.warn("[Background Billing Reconcile]", reconcileErr);
       });
     } catch (err: unknown) {
-      console.warn("Fallback overview data:", err);
-      // Fallback preview verifications
-      setPendingVerifications([
-        {
-          id: "pv-1",
-          invoiceId: "inv-mock-1",
-          invoiceNumber: "INV-2026-11-U201",
-          tenantName: "Rahul Sharma",
-          unitCode: "U-201",
-          propertyName: "Green Villa",
-          amountPaise: 1850000,
-          normalizedReference: "431289012389",
-          submittedAt: "Today 14:20 IST",
-          storagePath: "org_demo/mock1.png",
-        },
-      ]);
+      console.warn("[Dashboard] Invoices fetch error:", err);
+      setPendingVerifications([]);
+      setInvoices([]);
     } finally {
       setLoading(false);
     }
@@ -210,7 +201,7 @@ export default function OwnerOverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-xs text-text-muted">
-                November billing cycle · {invoices.length || 6} active units
+                Current billing cycle · {invoices.length} active invoices
               </div>
             </CardContent>
           </Card>

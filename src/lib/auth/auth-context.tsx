@@ -78,10 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isDemoModeAllowed =
-    process.env.NODE_ENV === "development" &&
-    process.env.NEXT_PUBLIC_ALLOW_DEV_AUTH_BYPASS === "true";
-
   const syncProfile = useCallback(async (firebaseUser: User) => {
     try {
       const token = await firebaseUser.getIdToken();
@@ -94,7 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!res.ok) {
-        throw new Error(`Sync failed with status ${res.status}`);
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || `Sync failed with status ${res.status}`);
       }
 
       const data = await res.json();
@@ -105,45 +102,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.memberships && data.memberships.length > 0) {
         setActiveOrganization(data.memberships[0].organization || null);
+      } else {
+        setActiveOrganization(null);
       }
+      setError(null);
     } catch (err: unknown) {
-      console.warn("Auth sync warning:", err);
-      // Fallback local profile for development or offline modes
-      const fallbackProfile: Profile = {
-        id: "local-profile-" + firebaseUser.uid.slice(0, 8),
-        firebase_uid: firebaseUser.uid,
-        email: firebaseUser.email || "user@rentpilot.app",
-        full_name: firebaseUser.displayName || "RentPilot User",
-        photo_url: firebaseUser.photoURL || null,
-        preferred_locale: "en",
-      };
-      setProfile(fallbackProfile);
-      // Default to owner in initial local onboarding if no orgs present
-      setIsOwner(true);
+      console.error("[AuthProvider] Profile synchronization failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to synchronize profile");
     }
   }, []);
 
   useEffect(() => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("rentpilot_demo_role");
+      }
       const auth = getFirebaseAuth();
       const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
         if (currentUser) {
-          if (typeof window !== "undefined") localStorage.removeItem("rentpilot_demo_role");
           setUser(currentUser);
           await syncProfile(currentUser);
         } else {
-          if (isDemoModeAllowed) {
-            const demoRole = typeof window !== "undefined" ? localStorage.getItem("rentpilot_demo_role") : null;
-            if (demoRole === "owner") {
-              signInAsDemoOwner();
-              return;
-            } else if (demoRole === "tenant") {
-              signInAsDemoTenant();
-              return;
-            }
-          } else if (typeof window !== "undefined") {
-            localStorage.removeItem("rentpilot_demo_role");
-          }
           setUser(null);
           setProfile(null);
           setMemberships([]);
@@ -159,41 +138,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Firebase auth init error:", err);
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncProfile]);
 
   const signInWithGoogle = async () => {
     setError(null);
-    setLoading(true);
     try {
       const auth = getFirebaseAuth();
       const result = await signInWithPopup(auth, googleProvider);
+      setUser(result.user);
       await syncProfile(result.user);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to sign in with Google";
-      setError(message);
+      const errorMessage = err instanceof Error ? err.message : "Google authentication failed";
+      console.error("Google sign-in error:", err);
+      setError(errorMessage);
       throw err;
-    } finally {
-      setLoading(false);
     }
   };
 
   const signOut = async () => {
-    setLoading(true);
     try {
+      const auth = getFirebaseAuth();
+      await firebaseSignOut(auth);
       if (typeof window !== "undefined") {
         localStorage.removeItem("rentpilot_demo_role");
       }
-      const auth = getFirebaseAuth();
-      await firebaseSignOut(auth);
       setUser(null);
       setProfile(null);
       setMemberships([]);
       setActiveOrganization(null);
       setIsOwner(false);
       setIsTenant(false);
-    } finally {
-      setLoading(false);
+    } catch (err: unknown) {
+      console.error("Sign-out error:", err);
     }
   };
 
@@ -204,88 +180,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsDemoOwner = () => {
-    if (!isDemoModeAllowed) {
-      console.warn("Demo mode is disabled in production environments.");
-      return;
-    }
-    if (typeof window !== "undefined") {
-      localStorage.setItem("rentpilot_demo_role", "owner");
-    }
-    const mockUser = {
-      uid: "demo-owner-uid",
-      email: "owner@rentpilot.app",
-      displayName: "Skanda Chandrashekar",
-      photoURL: null,
-      getIdToken: async () => "demo-owner-token",
-    } as unknown as User;
-    setUser(mockUser);
-    setProfile({
-      id: "demo-profile-owner",
-      firebase_uid: "demo-owner-uid",
-      email: "owner@rentpilot.app",
-      full_name: "Skanda Chandrashekar",
-      photo_url: null,
-      preferred_locale: "en",
-    });
-    setIsOwner(true);
-    setIsTenant(false);
-    setMemberships([
-      {
-        id: "demo-membership-1",
-        organization_id: "demo-org-1",
-        profile_id: "demo-profile-owner",
-        role: "OWNER",
-        status: "ACTIVE",
-        organization: {
-          id: "demo-org-1",
-          name: "Sri Lakshmi Estates",
-          owner_profile_id: "demo-profile-owner",
-          billing_day_of_month: 10,
-          currency: "INR",
-          timezone: "Asia/Kolkata",
-        },
-      },
-    ]);
-    setActiveOrganization({
-      id: "demo-org-1",
-      name: "Sri Lakshmi Estates",
-      owner_profile_id: "demo-profile-owner",
-      billing_day_of_month: 10,
-      currency: "INR",
-      timezone: "Asia/Kolkata",
-    });
-    setLoading(false);
+    console.warn("Demo mode is disabled. Please sign in with Google.");
   };
 
   const signInAsDemoTenant = () => {
-    if (!isDemoModeAllowed) {
-      console.warn("Demo mode is disabled in production environments.");
-      return;
-    }
-    if (typeof window !== "undefined") {
-      localStorage.setItem("rentpilot_demo_role", "tenant");
-    }
-    const mockUser = {
-      uid: "demo-tenant-uid",
-      email: "rahul.sharma@example.com",
-      displayName: "Rahul Sharma",
-      photoURL: null,
-      getIdToken: async () => "demo-tenant-token",
-    } as unknown as User;
-    setUser(mockUser);
-    setProfile({
-      id: "demo-profile-tenant",
-      firebase_uid: "demo-tenant-uid",
-      email: "rahul.sharma@example.com",
-      full_name: "Rahul Sharma",
-      photo_url: null,
-      preferred_locale: "en",
-    });
-    setIsOwner(false);
-    setIsTenant(true);
-    setMemberships([]);
-    setActiveOrganization(null);
-    setLoading(false);
+    console.warn("Demo mode is disabled. Please sign in with Google.");
   };
 
   return (

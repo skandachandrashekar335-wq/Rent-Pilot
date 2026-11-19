@@ -15,6 +15,7 @@ import { paiseToRupees } from "@/lib/domain/billing";
 import { VariableChargesModal } from "@/components/billing/variable-charges-modal";
 import { RecordOfflinePaymentDialog } from "@/components/billing/record-offline-payment-dialog";
 import { SplitScreenVerificationDrawer, VerificationItem } from "@/components/billing/split-screen-verification-drawer";
+import { authFetch } from "@/lib/api-client";
 
 interface RawInvoiceApiResponse {
   id: string;
@@ -68,14 +69,17 @@ export default function BillingPage() {
 
   const fetchInvoices = useCallback(async () => {
     try {
-      if (!user) throw new Error("Demo preview mode");
-      const token = await user.getIdToken();
+      if (!user) {
+        setInvoices([]);
+        setLoading(false);
+        return;
+      }
 
-      const res = await fetch("/api/invoices", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error("Failed to load invoices");
+      const res = await authFetch("/api/invoices");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to load invoices");
+      }
       const data = await res.json();
 
       const rawInvoices = (data.invoices || []) as RawInvoiceApiResponse[];
@@ -106,58 +110,8 @@ export default function BillingPage() {
 
       setInvoices(mapped);
     } catch (err: unknown) {
-      console.warn("Fallback billing invoices:", err);
-      // Fallback preview
-      setInvoices([
-        {
-          id: "inv-1",
-          invoice_number: "INV-2026-11-U201",
-          tenantName: "Rahul Sharma",
-          unitCode: "U-201",
-          propertyName: "Green Villa",
-          rentRupees: 16000,
-          variableChargesRupees: 2500,
-          totalDueRupees: 18500,
-          amountPaidRupees: 0,
-          balanceDueRupees: 18500,
-          dueDate: "2026-11-15",
-          status: "ISSUED",
-          is_overdue: true,
-          has_pending_proof: true,
-        },
-        {
-          id: "inv-2",
-          invoice_number: "INV-2026-11-U101",
-          tenantName: "Vijay Kumar",
-          unitCode: "U-101",
-          propertyName: "Green Villa",
-          rentRupees: 18000,
-          variableChargesRupees: 2700,
-          totalDueRupees: 20700,
-          amountPaidRupees: 20700,
-          balanceDueRupees: 0,
-          dueDate: "2026-11-15",
-          status: "PAID",
-          is_overdue: false,
-          has_pending_proof: false,
-        },
-        {
-          id: "inv-3",
-          invoice_number: "INV-2026-11-U102",
-          tenantName: "Suresh Nair",
-          unitCode: "U-102",
-          propertyName: "Green Villa",
-          rentRupees: 12500,
-          variableChargesRupees: 2000,
-          totalDueRupees: 14500,
-          amountPaidRupees: 5000,
-          balanceDueRupees: 9500,
-          dueDate: "2026-11-15",
-          status: "PARTIALLY_PAID",
-          is_overdue: true,
-          has_pending_proof: false,
-        },
-      ]);
+      console.warn("[Billing] Invoices fetch error:", err);
+      setInvoices([]);
     } finally {
       setLoading(false);
     }

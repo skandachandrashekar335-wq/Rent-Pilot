@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Zap, X, AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { formatINR } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
 
 interface BillingUnitRow {
   tenancyId: string;
@@ -55,49 +56,23 @@ export function VariableChargesModal({
       setLoading(true);
       setError(null);
       try {
-        if (!user) return;
-        const token = await user.getIdToken();
-        const res = await fetch(`/api/billing/batch?year=${billingYear}&month=${billingMonth}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (!user) {
+          setRows([]);
+          setLoading(false);
+          return;
+        }
+        const res = await authFetch(`/api/billing/batch?year=${billingYear}&month=${billingMonth}`);
 
-        if (!res.ok) throw new Error("Failed to load billing batch");
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null);
+          throw new Error(errJson?.error || "Failed to load billing batch");
+        }
 
         const data = await res.json();
         setRows(data.units || []);
       } catch (err: unknown) {
-        console.warn("Fallback billing batch:", err);
-        // Fallback preview units
-        setRows([
-          {
-            tenancyId: "mock-tenancy-1",
-            unitCode: "U-101",
-            propertyName: "Green Villa",
-            tenantName: "Vijay Kumar",
-            monthlyRentRupees: 18000,
-            electricityRupees: 1850,
-            waterRupees: 350,
-            maintenanceRupees: 500,
-            otherChargesRupees: 0,
-            creditsRupees: 0,
-            dueDate: `${billingYear}-${String(billingMonth).padStart(2, "0")}-15`,
-            status: "DRAFT",
-          },
-          {
-            tenancyId: "mock-tenancy-2",
-            unitCode: "U-201",
-            propertyName: "Green Villa",
-            tenantName: "Rahul Sharma",
-            monthlyRentRupees: 16000,
-            electricityRupees: 2100,
-            waterRupees: 400,
-            maintenanceRupees: 500,
-            otherChargesRupees: 0,
-            creditsRupees: 0,
-            dueDate: `${billingYear}-${String(billingMonth).padStart(2, "0")}-15`,
-            status: "DRAFT",
-          },
-        ]);
+        console.warn("[Billing Batch] Fetch error:", err);
+        setRows([]);
       } finally {
         setLoading(false);
       }
@@ -124,7 +99,6 @@ export function VariableChargesModal({
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
       const payload = {
         billingYear,
@@ -141,10 +115,9 @@ export function VariableChargesModal({
         })),
       };
 
-      const res = await fetch("/api/billing/batch", {
+      const res = await authFetch("/api/billing/batch", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),

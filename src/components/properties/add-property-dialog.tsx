@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Building2, X, AlertCircle, Loader2 } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
 
 interface AddPropertyDialogProps {
   isOpen: boolean;
@@ -37,17 +38,15 @@ export function AddPropertyDialog({ isOpen, onClose, onSuccess }: AddPropertyDia
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
       const facilityList = facilities
         .split(",")
         .map((f) => f.trim())
         .filter(Boolean);
 
-      const res = await fetch("/api/properties", {
+      const res = await authFetch("/api/properties", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -115,7 +114,7 @@ export function AddPropertyDialog({ isOpen, onClose, onSuccess }: AddPropertyDia
                 Property Name <span className="text-status-overdue-fg">*</span>
               </label>
               <Input
-                placeholder="e.g. Green Villa or Lakeview House"
+                placeholder="e.g. Sunrise Enclave or Lakeview House"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required

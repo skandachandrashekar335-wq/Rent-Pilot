@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Home, X, AlertCircle, Loader2 } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
 
 interface AddUnitDialogProps {
   isOpen: boolean;
@@ -45,17 +46,15 @@ export function AddUnitDialog({
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
       const facilityList = facilities
         .split(",")
         .map((f) => f.trim())
         .filter(Boolean);
 
-      const res = await fetch("/api/units", {
+      const res = await authFetch("/api/units", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

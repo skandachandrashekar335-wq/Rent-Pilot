@@ -21,6 +21,7 @@ import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/billing";
 import { MaintenanceDrawer } from "@/components/maintenance/maintenance-drawer";
+import { authFetch } from "@/lib/api-client";
 
 interface MaintenanceItem {
   id: string;
@@ -57,50 +58,22 @@ function MaintenancePageContent() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      if (!user) throw new Error("Demo preview mode");
-      const token = await user.getIdToken();
-      const res = await fetch("/api/maintenance", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (!user) {
+        setTickets([]);
+        setLoading(false);
+        return;
+      }
+      const res = await authFetch("/api/maintenance");
 
-      if (!res.ok) throw new Error("Failed to load maintenance tickets");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to load maintenance tickets");
+      }
       const data = await res.json();
       setTickets(data.requests || []);
     } catch (err: unknown) {
-      console.warn("Maintenance fetch error:", err);
-      // Fallback preview tickets
-      setTickets([
-        {
-          id: "mock-t1",
-          title: "Bathroom sink faucet slow drip",
-          description: "Bathroom sink faucet slow drip and pipe seal leaking under counter.",
-          category: "PLUMBING",
-          priority: "MEDIUM",
-          status: "IN_PROGRESS",
-          photo_paths: ["mock/sink1.jpg"],
-          repair_cost_paise: 65000,
-          paid_by: "OWNER",
-          created_at: new Date().toISOString(),
-          property: { id: "p1", name: "Green Villa" },
-          unit: { id: "u1", unit_number: "U-201" },
-          tenancy: { tenant: { full_name: "Rahul Sharma" } },
-        },
-        {
-          id: "mock-t2",
-          title: "Main breaker tripping on water heater load",
-          description: "Main circuit breaker tripping when water heater switches on in master bath.",
-          category: "ELECTRICAL",
-          priority: "URGENT",
-          status: "REPORTED",
-          photo_paths: [],
-          repair_cost_paise: 0,
-          paid_by: "OWNER",
-          created_at: new Date().toISOString(),
-          property: { id: "p2", name: "Lakeview House" },
-          unit: { id: "u2", unit_number: "U-01" },
-          tenancy: { tenant: { full_name: "Amit Patel" } },
-        },
-      ]);
+      console.warn("[Maintenance] Fetch error:", err);
+      setTickets([]);
     } finally {
       setLoading(false);
     }

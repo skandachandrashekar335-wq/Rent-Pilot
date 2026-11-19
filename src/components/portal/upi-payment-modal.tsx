@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { buildUpiPaymentUri, normalizePaymentReference } from "@/lib/domain/billing";
+import { authFetch } from "@/lib/api-client";
 
 interface UpiPaymentModalProps {
   isOpen: boolean;
@@ -104,13 +105,10 @@ export function UpiPaymentModal({
         throw new Error("Transaction reference / UTR must be between 8 and 30 alphanumeric characters");
       }
 
-      const token = await user.getIdToken();
-
       // 1. Get secure storage path
-      const storageInitRes = await fetch("/api/storage/receipts/upload-url", {
+      const storageInitRes = await authFetch("/api/storage/receipts/upload-url", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -124,10 +122,9 @@ export function UpiPaymentModal({
       const storageData = await storageInitRes.json();
 
       // 2. Submit payment proof
-      const submitRes = await fetch("/api/payments/submissions", {
+      const submitRes = await authFetch("/api/payments/submissions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

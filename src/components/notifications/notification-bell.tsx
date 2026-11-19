@@ -6,6 +6,7 @@ import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTranslation } from "@/components/layout/locale-context";
+import { authFetch } from "@/lib/api-client";
 
 interface NotificationItem {
   id: string;
@@ -29,10 +30,7 @@ export function NotificationBell() {
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/notifications", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch("/api/notifications");
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -66,12 +64,10 @@ export function NotificationBell() {
     if (!user) return;
     setLoading(true);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/notifications/read", {
+      const res = await authFetch("/api/notifications/read", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ all: true }),
       });
@@ -89,12 +85,10 @@ export function NotificationBell() {
   const handleItemClick = async (notif: NotificationItem) => {
     if (!notif.is_read && user) {
       try {
-        const token = await user.getIdToken();
-        await fetch("/api/notifications/read", {
+        await authFetch("/api/notifications/read", {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ notificationId: notif.id }),
         });

@@ -17,6 +17,7 @@ import { AddUnitDialog } from "@/components/properties/add-unit-dialog";
 import { CreateTenancyDialog } from "@/components/properties/create-tenancy-dialog";
 import { ApplyIncrementDialog } from "@/components/properties/apply-increment-dialog";
 import { EndTenancyDialog } from "@/components/properties/end-tenancy-dialog";
+import { authFetch } from "@/lib/api-client";
 
 interface UnitData {
   id: string;
@@ -105,15 +106,21 @@ export default function PropertiesPage() {
 
   const fetchPropertiesData = useCallback(async () => {
     try {
-      if (!user) throw new Error("Demo preview mode");
-      const token = await user.getIdToken();
+      if (!user) {
+        setProperties([]);
+        setLoading(false);
+        return;
+      }
 
       const [propsRes, tenanciesRes] = await Promise.all([
-        fetch("/api/properties", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/tenancies", { headers: { Authorization: `Bearer ${token}` } }),
+        authFetch("/api/properties"),
+        authFetch("/api/tenancies"),
       ]);
 
-      if (!propsRes.ok) throw new Error("Failed to load properties");
+      if (!propsRes.ok) {
+        const errJson = await propsRes.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to load properties");
+      }
 
       const propsData = await propsRes.json();
       const tenanciesData = tenanciesRes.ok ? await tenanciesRes.json() : { tenancies: [] };
@@ -167,72 +174,8 @@ export default function PropertiesPage() {
 
       setProperties(loadedProps);
     } catch (err: unknown) {
-      console.warn("Properties fetch fallback:", err);
-      // Fallback preview properties
-      setProperties([
-        {
-          id: "prop-1",
-          name: "Green Villa",
-          property_type: "INDEPENDENT_HOUSE",
-          address_line: "14th Cross, 2nd Main, Indiranagar",
-          city: "Bengaluru",
-          total_floors: 2,
-          facilities: ["Borewell Water", "Rainwater Harvesting", "CCTV"],
-          units: [
-            {
-              id: "u-101",
-              unit_number: "U-101",
-              floor_number: 0,
-              configuration_label: "2 BHK",
-              bedrooms: 2,
-              bathrooms: 1,
-              has_parking: true,
-              base_rent_paise: 1800000,
-              security_deposit_paise: 10000000,
-              occupancy_status: "OCCUPIED",
-              activeTenancy: {
-                id: "t-1",
-                tenant_name: "Rahul Sharma",
-                monthly_rent_paise: 1800000,
-                start_date: "2026-01-01",
-                increment_schedule: "5% on 01 Jan 2027",
-              },
-            },
-            {
-              id: "u-102",
-              unit_number: "U-102",
-              floor_number: 0,
-              configuration_label: "1 BHK",
-              bedrooms: 1,
-              bathrooms: 1,
-              has_parking: false,
-              base_rent_paise: 1250000,
-              security_deposit_paise: 6000000,
-              occupancy_status: "VACANT",
-              activeTenancy: null,
-            },
-            {
-              id: "u-201",
-              unit_number: "U-201",
-              floor_number: 1,
-              configuration_label: "2 BHK",
-              bedrooms: 2,
-              bathrooms: 2,
-              has_parking: true,
-              base_rent_paise: 1650000,
-              security_deposit_paise: 10000000,
-              occupancy_status: "OCCUPIED",
-              activeTenancy: {
-                id: "t-2",
-                tenant_name: "Amit Patel",
-                monthly_rent_paise: 1650000,
-                start_date: "2026-06-01",
-                increment_schedule: "5% on 01 Jun 2027",
-              },
-            },
-          ],
-        },
-      ]);
+      console.warn("[Properties] Fetch error:", err);
+      setProperties([]);
     } finally {
       setLoading(false);
     }

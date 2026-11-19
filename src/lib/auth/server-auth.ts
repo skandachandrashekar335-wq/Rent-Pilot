@@ -11,7 +11,7 @@ export interface AuthenticatedUser {
 }
 
 const isDevAuthBypassAllowed =
-  process.env.NODE_ENV === "development" &&
+  (process.env.NODE_ENV === "development" || process.env.ALLOW_DEV_AUTH_BYPASS === "true") &&
   !process.env.VERCEL &&
   !process.env.VERCEL_ENV &&
   process.env.ALLOW_DEV_AUTH_BYPASS === "true";
@@ -31,13 +31,21 @@ export async function verifyServerAuth(
   const idToken = authHeader.split("Bearer ")[1];
   let uid: string;
   let email: string;
+  let name: string | null = null;
+  let picture: string | null = null;
 
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken, true);
     uid = decoded.uid;
     email = (decoded.email || "").toLowerCase();
-  } catch {
-    if (isDevAuthBypassAllowed) {
+    name = (decoded.name as string) || null;
+    picture = (decoded.picture as string) || null;
+  } catch (err: unknown) {
+    const errorCode = (err as { code?: string })?.code || "unknown";
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[server-auth] Token verification failed [code: ${errorCode}]:`, errorMessage);
+
+    if (isDevAuthBypassAllowed && idToken === "dev-test-token") {
       uid = "dev-firebase-uid";
       email = "dev@rentpilot.app";
     } else {
@@ -53,29 +61,32 @@ export async function verifyServerAuth(
   // Retrieve user profile
   let { data: profile } = await supabase
     .from("profiles")
-    .select("id, email")
+    .select("id, email, full_name")
     .eq("firebase_uid", uid)
-    .single();
+    .maybeSingle();
 
-  // If in dev and no profile exists yet, auto-create mock profile
-  if (!profile && isDevAuthBypassAllowed) {
-    const { data: newProfile } = await supabase
+  // Auto-provision profile on first real Google login if not found
+  if (!profile) {
+    const fallbackName = name || email.split("@")[0] || "Property Owner";
+    const { data: newProfile, error: createProfileErr } = await supabase
       .from("profiles")
       .insert({
         firebase_uid: uid,
         email: email,
-        full_name: "RentPilot Developer",
+        full_name: fallbackName,
+        photo_url: picture,
       })
-      .select("id, email")
+      .select("id, email, full_name")
       .single();
-    profile = newProfile;
-  }
 
-  if (!profile) {
-    return {
-      auth: null,
-      errorResponse: { message: "User profile not found. Please sync authentication first.", status: 404 },
-    };
+    if (createProfileErr) {
+      console.error("[server-auth] Failed to auto-provision profile:", createProfileErr);
+      return {
+        auth: null,
+        errorResponse: { message: "Failed to initialize user profile", status: 500 },
+      };
+    }
+    profile = newProfile;
   }
 
   // Check organization membership
@@ -89,7 +100,7 @@ export async function verifyServerAuth(
       .eq("organization_id", requiredOrgId)
       .eq("profile_id", profile.id)
       .eq("status", "ACTIVE")
-      .single();
+      .maybeSingle();
 
     if (membership && (membership.role === "OWNER" || membership.role === "MANAGER")) {
       isOwnerOrManager = true;
@@ -105,8 +116,12 @@ export async function verifyServerAuth(
     if (memberships && memberships.length > 0) {
       activeOrgId = memberships[0].organization_id;
       isOwnerOrManager = memberships.some((m) => m.role === "OWNER" || m.role === "MANAGER");
-    } else if (isDevAuthBypassAllowed) {
-      // Auto-provision dev organization if none exists
+    } else {
+      // Auto-provision default organization for new landlords on first login
+      const defaultOrgName = profile.full_name
+        ? `${profile.full_name}'s Properties`
+        : "My Properties";
+
       let { data: defaultOrg } = await supabase
         .from("organizations")
         .select("id")
@@ -118,29 +133,34 @@ export async function verifyServerAuth(
         const { data: newOrg, error: orgError } = await supabase
           .from("organizations")
           .insert({
-            name: "Sri Lakshmi Estates",
+            name: defaultOrgName,
             owner_profile_id: profile.id,
-            billing_day_of_month: 10,
+            billing_day_of_month: 1,
             currency: "INR",
             timezone: "Asia/Kolkata",
           })
           .select("id")
           .single();
+
         if (orgError) {
-          console.error("Failed to auto-create dev organization:", orgError);
+          console.error("[server-auth] Failed to auto-create default organization:", orgError);
+        } else {
+          defaultOrg = newOrg;
         }
-        defaultOrg = newOrg;
       }
 
       if (defaultOrg) {
         await supabase
           .from("organization_memberships")
-          .upsert({
-            organization_id: defaultOrg.id,
-            profile_id: profile.id,
-            role: "OWNER",
-            status: "ACTIVE",
-          }, { onConflict: "organization_id,profile_id" });
+          .upsert(
+            {
+              organization_id: defaultOrg.id,
+              profile_id: profile.id,
+              role: "OWNER",
+              status: "ACTIVE",
+            },
+            { onConflict: "organization_id,profile_id" }
+          );
         activeOrgId = defaultOrg.id;
         isOwnerOrManager = true;
       }

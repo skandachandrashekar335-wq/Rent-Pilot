@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, CheckCircle2, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { authFetch } from "@/lib/api-client";
 
 interface InvitationData {
   id: string;
@@ -56,11 +57,9 @@ export default function AcceptInvitePage({
     setError(null);
 
     try {
-      const idToken = await user.getIdToken();
-      const res = await fetch(`/api/invitations/${token}/accept`, {
+      const res = await authFetch(`/api/invitations/${token}/accept`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${idToken}`,
           "Content-Type": "application/json",
         },
       });

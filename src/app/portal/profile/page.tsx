@@ -10,6 +10,7 @@ import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatINR } from "@/lib/utils";
 import { paiseToRupees } from "@/lib/domain/rent-increments";
+import { authFetch } from "@/lib/api-client";
 
 interface TenancyDetails {
   id: string;
@@ -48,11 +49,12 @@ export default function TenantProfilePage() {
   useEffect(() => {
     async function loadTenantData() {
       try {
-        if (!user) throw new Error("Demo preview mode");
-        const token = await user.getIdToken();
-        const res = await fetch("/api/portal/tenancy", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (!user) {
+          setTenancy(null);
+          setLoading(false);
+          return;
+        }
+        const res = await authFetch("/api/portal/tenancy");
 
         if (res.ok) {
           const data = await res.json();
@@ -61,42 +63,13 @@ export default function TenantProfilePage() {
             return;
           }
         }
+        setTenancy(null);
       } catch (err) {
-        console.warn("Tenant profile fallback:", err);
+        console.warn("[Portal Profile] Tenancy fetch warning:", err);
+        setTenancy(null);
       } finally {
         setLoading(false);
       }
-
-      // Default mock fallback for preview
-      setTenancy({
-        id: "t-mock-1",
-        start_date: "2026-01-01",
-        end_date: null,
-        monthly_rent_paise: 1600000,
-        security_deposit_paise: 8000000,
-        status: "ACTIVE",
-        unit: {
-          unit_number: "U-201",
-          configuration_label: "2 BHK",
-          bedrooms: 2,
-          bathrooms: 2,
-          has_parking: true,
-          property: {
-            name: "Green Villa",
-            address_line: "14th Cross, 2nd Main, Indiranagar",
-            city: "Bengaluru",
-            state: "Karnataka",
-            pincode: "560038",
-          },
-        },
-        rent_increment_schedules: [
-          {
-            increment_type: "PERCENTAGE",
-            increment_value: 5,
-            next_increment_date: "2027-01-01",
-          },
-        ],
-      });
     }
 
     loadTenantData();

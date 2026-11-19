@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DollarSign, X, AlertCircle, Loader2 } from "lucide-react";
 import { formatINR, isValidUuid } from "@/lib/utils";
+import { authFetch } from "@/lib/api-client";
 
 interface InvoiceOption {
   id: string;
@@ -70,12 +71,10 @@ export function RecordOfflinePaymentDialog({
 
     try {
       if (!user) throw new Error("Authentication required");
-      const token = await user.getIdToken();
 
-      const res = await fetch("/api/payments/offline", {
+      const res = await authFetch("/api/payments/offline", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

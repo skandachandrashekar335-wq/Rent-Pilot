@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
+import { authFetch } from "@/lib/api-client";
 
 export interface MaintenanceTicketDetail {
   id: string;
@@ -100,10 +101,7 @@ export function MaintenanceDrawer({
       setLoading(true);
       setError(null);
       try {
-        const token = await user?.getIdToken();
-        const res = await fetch(`/api/maintenance/${ticketId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authFetch(`/api/maintenance/${ticketId}`);
 
         if (!res.ok) throw new Error("Failed to load maintenance ticket");
         const data = await res.json();
@@ -139,12 +137,10 @@ export function MaintenanceDrawer({
     setActionLoading(true);
     setError(null);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/maintenance/${ticket.id}`, {
+      const res = await authFetch(`/api/maintenance/${ticket.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: newStatus,
@@ -161,9 +157,7 @@ export function MaintenanceDrawer({
 
       onUpdated();
       // Reload drawer data
-      const updatedRes = await fetch(`/api/maintenance/${ticket.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
       if (updatedRes.ok) {
         const data = await updatedRes.json();
         setTicket(data.request);
@@ -182,12 +176,10 @@ export function MaintenanceDrawer({
     setActionLoading(true);
     setError(null);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/maintenance/${ticket.id}`, {
+      const res = await authFetch(`/api/maintenance/${ticket.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           repairCostRupees: repairCost,
@@ -202,9 +194,7 @@ export function MaintenanceDrawer({
       }
 
       onUpdated();
-      const updatedRes = await fetch(`/api/maintenance/${ticket.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
       if (updatedRes.ok) {
         const data = await updatedRes.json();
         setTicket(data.request);
@@ -223,12 +213,10 @@ export function MaintenanceDrawer({
     setActionLoading(true);
     setError(null);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/maintenance/${ticket.id}`, {
+      const res = await authFetch(`/api/maintenance/${ticket.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           comment: commentText.trim(),
@@ -244,9 +232,7 @@ export function MaintenanceDrawer({
       setCommentText("");
       setIsInternalNote(false);
       onUpdated();
-      const updatedRes = await fetch(`/api/maintenance/${ticket.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
       if (updatedRes.ok) {
         const data = await updatedRes.json();
         setUpdates(data.updates || []);

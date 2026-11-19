@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
+import { authFetch } from "@/lib/api-client";
 
 interface TenantMaintenanceItem {
   id: string;
@@ -68,32 +69,22 @@ function TenantSupportContent() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      if (!user) throw new Error("Demo preview mode");
-      const token = await user.getIdToken();
-      const res = await fetch("/api/maintenance", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (!user) {
+        setTickets([]);
+        setLoading(false);
+        return;
+      }
+      const res = await authFetch("/api/maintenance");
 
-      if (!res.ok) throw new Error("Failed to load maintenance requests");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to load maintenance requests");
+      }
       const data = await res.json();
       setTickets(data.requests || []);
     } catch (err: unknown) {
-      console.warn("Tenant maintenance fetch warning:", err);
-      // Mock fallback for preview
-      setTickets([
-        {
-          id: "mock-t1",
-          title: "Bathroom sink faucet slow drip",
-          description: "Bathroom sink faucet slow drip and pipe seal leaking under counter.",
-          category: "PLUMBING",
-          priority: "MEDIUM",
-          status: "IN_PROGRESS",
-          photo_paths: [],
-          created_at: new Date().toISOString(),
-          unit: { unit_number: "U-201" },
-          property: { name: "Green Villa" },
-        },
-      ]);
+      console.warn("[Portal Support] Fetch warning:", err);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
@@ -122,10 +113,7 @@ function TenantSupportContent() {
 
     if (!ticketUpdates[ticketId] && user) {
       try {
-        const token = await user.getIdToken();
-        const res = await fetch(`/api/maintenance/${ticketId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authFetch(`/api/maintenance/${ticketId}`);
 
         if (res.ok) {
           const data = await res.json();
@@ -176,16 +164,13 @@ function TenantSupportContent() {
     setFormError(null);
 
     try {
-      const token = await user.getIdToken();
-
       // 1. Upload photos if any
       const uploadedPaths: string[] = [];
       for (const file of photoFiles) {
-        const presignRes = await fetch("/api/storage/maintenance/upload-url", {
+        const presignRes = await authFetch("/api/storage/maintenance/upload-url", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             filename: file.name,
@@ -216,11 +201,10 @@ function TenantSupportContent() {
       }
 
       // 2. Create maintenance ticket
-      const res = await fetch("/api/maintenance", {
+      const res = await authFetch("/api/maintenance", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: title.trim(),
@@ -256,12 +240,10 @@ function TenantSupportContent() {
     if (!user) return;
     setCancellingId(ticketId);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/maintenance/${ticketId}`, {
+      const res = await authFetch(`/api/maintenance/${ticketId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: "CANCELLED",

@@ -10,6 +10,7 @@ import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/billing";
+import { authFetch } from "@/lib/api-client";
 
 interface HistoryPayment {
   id: string;
@@ -46,11 +47,13 @@ export default function TenantHistoryPage() {
   useEffect(() => {
     async function loadHistory() {
       try {
-        if (!user) throw new Error("Demo preview mode");
-        const token = await user.getIdToken();
-        const res = await fetch("/api/invoices", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (!user) {
+          setHistoryRecords([]);
+          setLoading(false);
+          return;
+        }
+
+        const res = await authFetch("/api/invoices");
 
         if (res.ok) {
           const data = await res.json();
@@ -80,50 +83,16 @@ export default function TenantHistoryPage() {
             });
           });
 
-          if (records.length > 0) {
-            setHistoryRecords(records);
-            return;
-          }
+          setHistoryRecords(records);
+        } else {
+          setHistoryRecords([]);
         }
       } catch (err) {
-        console.warn("History fetch error:", err);
+        console.warn("[Portal History] Fetch error:", err);
+        setHistoryRecords([]);
       } finally {
         setLoading(false);
       }
-
-      // Default fallback records for demo
-      setHistoryRecords([
-        {
-          id: "inv-oct-26",
-          month: "October 2026",
-          amountRupees: 18200,
-          paidAt: "12 Oct 2026",
-          reference: "429810984120",
-          receiptNumber: "RCP-2026-00412",
-          method: "UPI",
-          status: "VERIFIED",
-        },
-        {
-          id: "inv-sep-26",
-          month: "September 2026",
-          amountRupees: 16000,
-          paidAt: "14 Sep 2026",
-          reference: "426710492811",
-          receiptNumber: "RCP-2026-00388",
-          method: "UPI",
-          status: "VERIFIED",
-        },
-        {
-          id: "inv-aug-26",
-          month: "August 2026",
-          amountRupees: 16000,
-          paidAt: "11 Aug 2026",
-          reference: "CASH / In-Hand",
-          receiptNumber: "RCP-2026-00341",
-          method: "CASH",
-          status: "VERIFIED",
-        },
-      ]);
     }
 
     loadHistory();
