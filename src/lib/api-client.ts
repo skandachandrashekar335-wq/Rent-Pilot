@@ -33,10 +33,19 @@ export async function authFetch(
     }
   }
 
+  // In automated test environments, allow test token injection
+  if (!token && typeof window !== "undefined") {
+    token = (window as unknown as { __RENTPILOT_TEST_TOKEN__?: string }).__RENTPILOT_TEST_TOKEN__ || null;
+  }
+
   // Build headers
   const headers = new Headers(options.headers || {});
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  if (typeof window !== "undefined" && (window as unknown as { __RENTPILOT_TEST_EMAIL__?: string }).__RENTPILOT_TEST_EMAIL__) {
+    headers.set("x-test-email", (window as unknown as { __RENTPILOT_TEST_EMAIL__: string }).__RENTPILOT_TEST_EMAIL__);
   }
 
   let res = await fetch(url, {

@@ -45,7 +45,13 @@ async function handleAuthSync(req: NextRequest) {
         email = body.devUser?.email || "dev@rentpilot.app";
         name = body.devUser?.name || "Development User";
       } else {
-        return NextResponse.json({ error: "Invalid Firebase ID token" }, { status: 401 });
+        const descriptiveMessage =
+          errorCode === "auth/id-token-expired"
+            ? "Authentication token has expired. Please refresh your session."
+            : errorCode !== "unknown"
+            ? `Token verification failed [${errorCode}]: ${errorMessage}`
+            : "Invalid Firebase ID token";
+        return NextResponse.json({ error: descriptiveMessage }, { status: 401 });
       }
     }
 
@@ -81,7 +87,8 @@ async function handleAuthSync(req: NextRequest) {
       .from("organization_memberships")
       .select("*, organization:organizations(*)")
       .eq("profile_id", profile.id)
-      .eq("status", "ACTIVE");
+      .eq("status", "ACTIVE")
+      .order("created_at", { ascending: false });
 
     // 3. Check for Active Tenancies / Invitations
     const { data: invitations } = await supabase

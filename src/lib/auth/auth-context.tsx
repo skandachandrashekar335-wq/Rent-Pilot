@@ -112,6 +112,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("rentpilot_demo_role");
+
+        // Automated test harness injection support
+        if ((window as unknown as { __RENTPILOT_TEST_USER__?: unknown }).__RENTPILOT_TEST_USER__) {
+          const testUser = (window as unknown as { __RENTPILOT_TEST_USER__: User }).__RENTPILOT_TEST_USER__;
+          setUser(testUser);
+          syncProfile().finally(() => {
+            setLoading(false);
+          });
+          return;
+        }
       }
       const auth = getFirebaseAuth();
       const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {

@@ -49,9 +49,16 @@ export async function verifyServerAuth(
       uid = "dev-firebase-uid";
       email = "dev@rentpilot.app";
     } else {
+      const descriptiveMessage =
+        errorCode === "auth/id-token-expired"
+          ? "Authentication token has expired. Please refresh your session."
+          : errorCode !== "unknown"
+          ? `Token verification failed [${errorCode}]: ${errorMessage}`
+          : "Invalid or expired authentication token";
+
       return {
         auth: null,
-        errorResponse: { message: "Invalid or expired authentication token", status: 401 },
+        errorResponse: { message: descriptiveMessage, status: 401 },
       };
     }
   }
@@ -111,7 +118,8 @@ export async function verifyServerAuth(
       .from("organization_memberships")
       .select("organization_id, role")
       .eq("profile_id", profile.id)
-      .eq("status", "ACTIVE");
+      .eq("status", "ACTIVE")
+      .order("created_at", { ascending: false });
 
     if (memberships && memberships.length > 0) {
       activeOrgId = memberships[0].organization_id;

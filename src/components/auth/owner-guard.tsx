@@ -66,11 +66,26 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
       setOrgError(null);
 
       try {
+        // Force fresh ID token immediately before submitting to avoid stale or expired session
+        let freshToken: string | undefined;
+        if (user && typeof user.getIdToken === "function") {
+          try {
+            freshToken = await user.getIdToken(true);
+          } catch (tokErr) {
+            console.warn("[owner-guard] Failed to force-refresh token:", tokErr);
+          }
+        }
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (freshToken) {
+          headers["Authorization"] = `Bearer ${freshToken}`;
+        }
+
         const res = await authFetch("/api/organizations", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({
             name: orgName.trim(),
             billingDayOfMonth: Number(billingDay),
