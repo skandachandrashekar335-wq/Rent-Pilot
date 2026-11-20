@@ -19,12 +19,12 @@ const isDevAuthBypassAllowed =
 export async function verifyServerAuth(
   req: NextRequest,
   requiredOrgId?: string
-): Promise<{ auth: AuthenticatedUser | null; errorResponse?: { message: string; status: number } }> {
+): Promise<{ auth: AuthenticatedUser | null; errorResponse?: { message: string; code?: string; status: number } }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       auth: null,
-      errorResponse: { message: "Authentication required", status: 401 },
+      errorResponse: { message: "Authentication required", code: "auth/missing-header", status: 401 },
     };
   }
 
@@ -58,19 +58,40 @@ export async function verifyServerAuth(
 
       return {
         auth: null,
-        errorResponse: { message: descriptiveMessage, status: 401 },
+        errorResponse: { message: descriptiveMessage, code: errorCode, status: 401 },
       };
     }
   }
 
   const supabase = createAdminSupabaseClient();
 
-  // Retrieve user profile
+  // Retrieve user profile (check firebase_uid, then fallback to email)
   let { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, full_name")
+    .select("id, email, full_name, firebase_uid")
     .eq("firebase_uid", uid)
     .maybeSingle();
+
+  if (!profile) {
+    const { data: existingByEmail } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, firebase_uid")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingByEmail) {
+      await supabase
+        .from("profiles")
+        .update({
+          firebase_uid: uid,
+          photo_url: picture,
+          full_name: name || existingByEmail.full_name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingByEmail.id);
+      profile = { ...existingByEmail, firebase_uid: uid };
+    }
+  }
 
   // Auto-provision profile on first real Google login if not found
   if (!profile) {
@@ -83,14 +104,14 @@ export async function verifyServerAuth(
         full_name: fallbackName,
         photo_url: picture,
       })
-      .select("id, email, full_name")
+      .select("id, email, full_name, firebase_uid")
       .single();
 
     if (createProfileErr) {
       console.error("[server-auth] Failed to auto-provision profile:", createProfileErr);
       return {
         auth: null,
-        errorResponse: { message: "Failed to initialize user profile", status: 500 },
+        errorResponse: { message: "Failed to initialize user profile", code: "db/profile-error", status: 500 },
       };
     }
     profile = newProfile;
@@ -99,6 +120,51 @@ export async function verifyServerAuth(
   // Check organization membership
   let isOwnerOrManager = false;
   let activeOrgId = requiredOrgId;
+
+  // Explicit admin rule for powrrskanda@gmail.com
+  const isSuperAdmin = email === "powrrskanda@gmail.com";
+  if (isSuperAdmin) {
+    let { data: shekarOrg } = await supabase
+      .from("organizations")
+      .select("id, name")
+      .eq("name", "Shekar Homes")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!shekarOrg) {
+      const { data: newOrg } = await supabase
+        .from("organizations")
+        .insert({
+          name: "Shekar Homes",
+          owner_profile_id: profile.id,
+          billing_day_of_month: 10,
+          currency: "INR",
+          timezone: "Asia/Kolkata",
+        })
+        .select("id, name")
+        .single();
+      shekarOrg = newOrg;
+    }
+
+    if (shekarOrg) {
+      await supabase
+        .from("organization_memberships")
+        .upsert(
+          {
+            organization_id: shekarOrg.id,
+            profile_id: profile.id,
+            role: "OWNER",
+            status: "ACTIVE",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "organization_id,profile_id" }
+        );
+
+      activeOrgId = requiredOrgId || shekarOrg.id;
+      isOwnerOrManager = true;
+    }
+  }
 
   if (requiredOrgId) {
     const { data: membership } = await supabase
@@ -112,7 +178,7 @@ export async function verifyServerAuth(
     if (membership && (membership.role === "OWNER" || membership.role === "MANAGER")) {
       isOwnerOrManager = true;
     }
-  } else {
+  } else if (!isSuperAdmin) {
     // Look up primary active organization membership
     const { data: memberships } = await supabase
       .from("organization_memberships")

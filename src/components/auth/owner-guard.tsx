@@ -95,8 +95,9 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
         });
 
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to initialize organization");
+          const data = await res.json().catch(() => ({}));
+          const errDetail = data.code ? ` [Code: ${data.code}]` : "";
+          throw new Error((data.error || "Failed to initialize organization") + errDetail);
         }
 
         await refreshSession();

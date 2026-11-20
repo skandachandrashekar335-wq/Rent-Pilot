@@ -51,35 +51,104 @@ async function handleAuthSync(req: NextRequest) {
             : errorCode !== "unknown"
             ? `Token verification failed [${errorCode}]: ${errorMessage}`
             : "Invalid Firebase ID token";
-        return NextResponse.json({ error: descriptiveMessage }, { status: 401 });
+        return NextResponse.json({ error: descriptiveMessage, code: errorCode }, { status: 401 });
       }
     }
 
     if (!email) {
-      return NextResponse.json({ error: "User token must have an email" }, { status: 400 });
+      return NextResponse.json({ error: "User token must have an email", code: "auth/missing-email" }, { status: 400 });
     }
 
     const supabase = createAdminSupabaseClient();
 
-    // 1. Upsert Profile
-    const { data: profile, error: profileError } = await supabase
+    // 1. Find profile by firebase_uid or fallback to email
+    let { data: profile } = await supabase
       .from("profiles")
-      .upsert(
-        {
-          firebase_uid: uid,
-          email: email.toLowerCase(),
-          full_name: name || email.split("@")[0],
-          photo_url: picture,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "firebase_uid" }
-      )
-      .select()
-      .single();
+      .select("*")
+      .eq("firebase_uid", uid)
+      .maybeSingle();
 
-    if (profileError || !profile) {
-      console.error("[auth-sync] Profile upsert error:", profileError);
-      return NextResponse.json({ error: "Failed to persist profile" }, { status: 500 });
+    if (!profile) {
+      const { data: existingByEmail } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", email.toLowerCase())
+        .maybeSingle();
+
+      if (existingByEmail) {
+        const { data: updated } = await supabase
+          .from("profiles")
+          .update({
+            firebase_uid: uid,
+            full_name: name || existingByEmail.full_name,
+            photo_url: picture || existingByEmail.photo_url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingByEmail.id)
+          .select()
+          .single();
+        profile = updated;
+      } else {
+        const { data: newProfile, error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            firebase_uid: uid,
+            email: email.toLowerCase(),
+            full_name: name || email.split("@")[0],
+            photo_url: picture,
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (profileError || !newProfile) {
+          console.error("[auth-sync] Profile insert error:", profileError);
+          return NextResponse.json({ error: "Failed to persist profile", code: "db/profile-error" }, { status: 500 });
+        }
+        profile = newProfile;
+      }
+    }
+
+    // Explicit Admin/Owner Rule for powrrskanda@gmail.com
+    const isSuperAdmin = email.toLowerCase() === "powrrskanda@gmail.com";
+    if (isSuperAdmin) {
+      let { data: shekarOrg } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("name", "Shekar Homes")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!shekarOrg) {
+        const { data: newOrg } = await supabase
+          .from("organizations")
+          .insert({
+            name: "Shekar Homes",
+            owner_profile_id: profile.id,
+            billing_day_of_month: 10,
+            currency: "INR",
+            timezone: "Asia/Kolkata",
+          })
+          .select("id, name")
+          .single();
+        shekarOrg = newOrg;
+      }
+
+      if (shekarOrg) {
+        await supabase
+          .from("organization_memberships")
+          .upsert(
+            {
+              organization_id: shekarOrg.id,
+              profile_id: profile.id,
+              role: "OWNER",
+              status: "ACTIVE",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "organization_id,profile_id" }
+          );
+      }
     }
 
     // 2. Fetch Organization Memberships

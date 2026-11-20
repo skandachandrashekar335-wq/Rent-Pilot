@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const { auth, errorResponse } = await verifyServerAuth(req);
     if (!auth || errorResponse) {
-      return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
+      return NextResponse.json({ error: errorResponse?.message || "Unauthorized", code: errorResponse?.code }, { status: errorResponse?.status || 401 });
     }
 
     const body = await req.json();

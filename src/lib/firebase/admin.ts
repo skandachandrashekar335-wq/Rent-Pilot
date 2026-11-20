@@ -1,6 +1,28 @@
 import type { App } from "firebase-admin/app";
 import type { Auth } from "firebase-admin/auth";
 
+export function cleanEnv(val?: string): string {
+  if (!val) return "";
+  return val
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\\r/g, "")
+    .replace(/\\n/g, "\n");
+}
+
+export function getFirebaseProjectId(): string {
+  const adminId = cleanEnv(process.env.FIREBASE_ADMIN_PROJECT_ID);
+  const publicId = cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+
+  if (adminId && adminId !== "your-project-id" && adminId !== "mock-project") {
+    return adminId.trim();
+  }
+  if (publicId && publicId !== "mock-project") {
+    return publicId.trim();
+  }
+  return "rent-pilot-14fb8";
+}
+
 export function getFirebaseAdminApp(): App {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { initializeApp, getApps, cert } = require("firebase-admin/app");
@@ -9,19 +31,9 @@ export function getFirebaseAdminApp(): App {
     return apps[0]!;
   }
 
-  const rawProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-  const projectId =
-    rawProjectId && rawProjectId !== "your-project-id"
-      ? rawProjectId
-      : (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "rent-pilot-14fb8");
-
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
-
-  if (privateKey) {
-    // Strip accidental outer quotes if pasted with quotes into environment variables
-    privateKey = privateKey.replace(/^["']|["']$/g, "").replace(/\\n/g, "\n");
-  }
+  const projectId = getFirebaseProjectId();
+  const clientEmail = cleanEnv(process.env.FIREBASE_ADMIN_CLIENT_EMAIL);
+  const privateKey = cleanEnv(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
 
   const isRealCert =
     clientEmail &&
