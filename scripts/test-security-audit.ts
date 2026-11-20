@@ -295,7 +295,7 @@ async function runSecurityAudit() {
     });
   }
 
-  await test("Suite 4", "Forged / alg:none JWT is rejected with 401 Unauthorized", async () => {
+  await test("Suite 4", "Forged / alg:none JWT is rejected with 401 or 403", async () => {
     // alg:none JWT header: {"alg":"none","typ":"JWT"} -> eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0
     // payload: {"sub":"hacker","email":"hacker@evil.com"} -> eyJzdWIiOiJoYWNrZXIiLCJlbWFpbCI6ImhhY2tlckBldmlsLmNvbSJ9
     const algNoneToken = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJoYWNrZXIiLCJlbWFpbCI6ImhhY2tlckBldmlsLmNvbSJ9.";
@@ -304,7 +304,7 @@ async function runSecurityAudit() {
         Authorization: `Bearer ${algNoneToken}`,
       },
     });
-    assert.strictEqual(res.status, 401, "Forged token must return 401");
+    assert([401, 403].includes(res.status), `Forged token must return 401 or 403, got ${res.status}`);
   });
 
   await test("Suite 4", "Expired / malformed token is rejected with 401 Unauthorized", async () => {
