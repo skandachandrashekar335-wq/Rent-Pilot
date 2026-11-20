@@ -34,19 +34,6 @@ interface FormTestResult {
 
 const results: FormTestResult[] = [];
 
-async function injectAuth(page: Page) {
-  await page.addInitScript(() => {
-    (window as unknown as { __RENTPILOT_TEST_USER__: unknown }).__RENTPILOT_TEST_USER__ = {
-      uid: "dev-firebase-uid",
-      email: "dev@rentpilot.app",
-      displayName: "Skanda Chandra",
-      getIdToken: async () => "dev-test-token",
-    };
-    (window as unknown as { __RENTPILOT_TEST_TOKEN__: string }).__RENTPILOT_TEST_TOKEN__ = "dev-test-token";
-    (window as unknown as { __RENTPILOT_TEST_EMAIL__: string }).__RENTPILOT_TEST_EMAIL__ = "dev@rentpilot.app";
-  });
-}
-
 async function waitForOwnerAuth(page: Page) {
   try {
     await page.waitForSelector('text="RentPilot v1.0"', { timeout: 15000 });
@@ -414,7 +401,6 @@ async function runE2EFormAudit() {
 
       if (invErr || !dbInvoice) throw new Error("Invoice not found in Supabase: " + invErr?.message);
       createdInvoiceId = dbInvoice.id;
-      const expectedTotal = (28000 + 1850 + 400 + 600) * 100;
       console.log(`  ✓ Verified in Supabase: Invoice #${dbInvoice.invoice_number}, Total Due=₹${dbInvoice.total_due_paise / 100}, Status=${dbInvoice.status}`);
 
       results.push({
