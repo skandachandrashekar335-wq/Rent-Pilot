@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyServerAuth } from "@/lib/auth/server-auth";
+import { requireOwnerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreatePropertySchema } from "@/lib/validation/rental";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }

@@ -10,7 +10,6 @@ import {
   Wrench,
   Menu,
   X,
-  User,
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { UserAccountMenu } from "@/components/auth/user-account-menu";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useTranslation } from "./locale-context";
 
 interface NavItem {
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
 export function OwnerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { activeOrganization } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -64,7 +66,7 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded text-xs font-medium bg-surface-muted text-text-muted border border-border/40">
-            <span>Family Rentals</span>
+            <span>{activeOrganization?.name || "Shekar Homes"}</span>
           </div>
         </div>
 
@@ -82,13 +84,8 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
           <LocaleSwitcher />
           <ThemeToggle />
 
-          <div className="flex items-center gap-2 pl-2 border-l border-border">
-            <div className="h-7 w-7 rounded-full bg-surface-muted flex items-center justify-center text-text-muted border border-border/40">
-              <User className="h-4 w-4" />
-            </div>
-            <span className="hidden sm:inline text-xs font-medium text-text-primary">
-              Skanda
-            </span>
+          <div className="pl-1 border-l border-border/60">
+            <UserAccountMenu />
           </div>
         </div>
       </header>

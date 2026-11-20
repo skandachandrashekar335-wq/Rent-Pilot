@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
+import { isAllowedOwnerEmail } from "@/lib/auth/admin-allowlist";
 
 export const dynamic = "force-dynamic";
 
@@ -107,12 +108,13 @@ async function handleAuthSync(req: NextRequest) {
       }
     }
 
-    // Explicit Admin/Owner Rule for powrrskanda@gmail.com
-    const isSuperAdmin = email.toLowerCase() === "powrrskanda@gmail.com";
-    if (isSuperAdmin) {
+    const isOwnerAuthorized = isAllowedOwnerEmail(email);
+
+    // Hard-locked Admin/Owner Rule: skandachandrashekar335@gmail.com and chandraskekar335@gmail.com ONLY
+    if (isOwnerAuthorized) {
       let { data: shekarOrg } = await supabase
         .from("organizations")
-        .select("id, name")
+        .select("id, name, owner_profile_id")
         .eq("name", "Shekar Homes")
         .order("created_at", { ascending: false })
         .limit(1)
@@ -128,7 +130,7 @@ async function handleAuthSync(req: NextRequest) {
             currency: "INR",
             timezone: "Asia/Kolkata",
           })
-          .select("id, name")
+          .select("id, name, owner_profile_id")
           .single();
         shekarOrg = newOrg;
       }
@@ -150,12 +152,16 @@ async function handleAuthSync(req: NextRequest) {
     }
 
     // 2. Fetch Organization Memberships
-    let { data: memberships } = await supabase
-      .from("organization_memberships")
-      .select("*, organization:organizations(*)")
-      .eq("profile_id", profile.id)
-      .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false });
+    let memberships: Array<Record<string, unknown>> = [];
+    if (isOwnerAuthorized) {
+      const { data: ownerMemberships } = await supabase
+        .from("organization_memberships")
+        .select("*, organization:organizations(*)")
+        .eq("profile_id", profile.id)
+        .eq("status", "ACTIVE")
+        .order("created_at", { ascending: false });
+      memberships = ownerMemberships || [];
+    }
 
     // 3. Check for Active Tenancies / Invitations
     const { data: invitations } = await supabase
@@ -165,67 +171,13 @@ async function handleAuthSync(req: NextRequest) {
       .eq("status", "ACCEPTED");
 
     const isTenant = Boolean(invitations && invitations.length > 0);
-
-    // 4. If user has no memberships and is not a tenant, auto-provision default organization as OWNER
-    if ((!memberships || memberships.length === 0) && !isTenant) {
-      const defaultOrgName = profile.full_name
-        ? `${profile.full_name}'s Properties`
-        : "My Properties";
-
-      let { data: defaultOrg } = await supabase
-        .from("organizations")
-        .select("id, name, owner_profile_id, billing_day_of_month, currency, timezone")
-        .eq("owner_profile_id", profile.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (!defaultOrg) {
-        const { data: newOrg, error: orgError } = await supabase
-          .from("organizations")
-          .insert({
-            name: defaultOrgName,
-            owner_profile_id: profile.id,
-            billing_day_of_month: 1,
-            currency: "INR",
-            timezone: "Asia/Kolkata",
-          })
-          .select("id, name, owner_profile_id, billing_day_of_month, currency, timezone")
-          .single();
-
-        if (orgError) {
-          console.error("[auth-sync] Auto-create organization failed:", orgError);
-        } else {
-          defaultOrg = newOrg;
-        }
-      }
-
-      if (defaultOrg) {
-        const { data: newMembership } = await supabase
-          .from("organization_memberships")
-          .upsert(
-            {
-              organization_id: defaultOrg.id,
-              profile_id: profile.id,
-              role: "OWNER",
-              status: "ACTIVE",
-            },
-            { onConflict: "organization_id,profile_id" }
-          )
-          .select("*, organization:organizations(*)")
-          .single();
-
-        if (newMembership) {
-          memberships = [newMembership];
-        }
-      }
-    }
-
-    const isOwner = memberships ? memberships.some((m: { role: string }) => m.role === "OWNER") : false;
+    const isOwner = Boolean(isOwnerAuthorized && memberships.length > 0);
 
     return NextResponse.json({
       profile,
-      memberships: memberships || [],
+      memberships,
       isOwner,
+      isOwnerAuthorized,
       isTenant,
     });
   } catch (err: unknown) {

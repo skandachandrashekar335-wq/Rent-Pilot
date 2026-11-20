@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyServerAuth } from "@/lib/auth/server-auth";
+import { requireOwnerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateUnitSchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }

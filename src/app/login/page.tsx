@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isAllowedOwnerEmail } from "@/lib/auth/admin-allowlist";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle, error: authError } = useAuth();
+  const { user, loading, signInWithGoogle, signOut, error: authError } = useAuth();
   const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,18 +55,42 @@ export default function LoginPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Link href="/dashboard/owner" className="block w-full">
-                <Button className="w-full justify-between h-11">
-                  <span>Enter Owner Command Center</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/portal" className="block w-full">
-                <Button variant="outline" className="w-full justify-between h-11">
-                  <span>Enter Tenant Portal</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              {isAllowedOwnerEmail(user.email) ? (
+                <>
+                  <Link href="/dashboard/owner" className="block w-full">
+                    <Button className="w-full justify-between h-11">
+                      <span>Enter Owner Command Center</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/portal" className="block w-full">
+                    <Button variant="outline" className="w-full justify-between h-11">
+                      <span>Enter Tenant Portal</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/portal" className="block w-full">
+                    <Button className="w-full justify-between h-11">
+                      <span>Enter Tenant Portal</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <div className="p-2.5 rounded-lg bg-surface-muted border border-border/40 text-[11px] text-text-muted text-center">
+                    Signed in as tenant account. Owner Command Center access is restricted to authorized administrator accounts.
+                  </div>
+                </>
+              )}
+
+              <Button
+                variant="ghost"
+                onClick={() => signOut()}
+                className="w-full h-9 text-xs text-text-muted hover:text-text-primary"
+              >
+                Sign Out / Switch Account
+              </Button>
             </CardContent>
           </Card>
         </main>

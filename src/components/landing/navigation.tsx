@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserAccountMenu } from "@/components/auth/user-account-menu";
 
 const navLinks = [
   { name: "Capabilities", href: "#capabilities" },
@@ -83,12 +84,7 @@ export function Navigation() {
             >
               Tenant Portal
             </Link>
-            <Link 
-              href="/login" 
-              className={`text-foreground/70 hover:text-foreground font-medium transition-all duration-500 ${isScrolled ? "text-xs px-2" : "text-sm px-3"}`}
-            >
-              Sign In
-            </Link>
+            <UserAccountMenu />
             <Link href="/dashboard/owner">
               <Button
                 size="sm"

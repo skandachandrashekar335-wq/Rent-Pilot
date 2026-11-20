@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, Plus, Users, Calendar, TrendingUp, UserPlus, LogOut, Loader2 } from "lucide-react";
+import { Building2, Plus, Users, Calendar, TrendingUp, UserPlus, LogOut, Loader2, Pencil, Trash2 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -17,6 +17,7 @@ import { AddUnitDialog } from "@/components/properties/add-unit-dialog";
 import { CreateTenancyDialog } from "@/components/properties/create-tenancy-dialog";
 import { ApplyIncrementDialog } from "@/components/properties/apply-increment-dialog";
 import { EndTenancyDialog } from "@/components/properties/end-tenancy-dialog";
+import { EditRentDialog } from "@/components/properties/edit-rent-dialog";
 import { authFetch } from "@/lib/api-client";
 
 interface UnitData {
@@ -102,6 +103,25 @@ export default function PropertiesPage() {
     tenancyId: "",
     unitCode: "",
     tenantName: "",
+  });
+
+  const [editRentState, setEditRentState] = useState<{
+    isOpen: boolean;
+    unitId: string;
+    unitNumber: string;
+    propertyName: string;
+    currentRentRupees: number;
+    currentDepositRupees: number;
+    isOccupied: boolean;
+    tenantName?: string;
+  }>({
+    isOpen: false,
+    unitId: "",
+    unitNumber: "",
+    propertyName: "",
+    currentRentRupees: 0,
+    currentDepositRupees: 0,
+    isOccupied: false,
   });
 
   const fetchPropertiesData = useCallback(async () => {
@@ -273,6 +293,27 @@ export default function PropertiesPage() {
                           <Plus className="h-3.5 w-3.5" />
                           <span>Add Unit</span>
                         </Button>
+                        {prop.units.every((u) => u.occupancy_status !== "OCCUPIED") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-text-muted hover:text-status-overdue-fg hover:bg-status-overdue-bg"
+                            title="Delete property"
+                            onClick={async () => {
+                              if (confirm(`Are you sure you want to delete property "${prop.name}"?`)) {
+                                const res = await authFetch(`/api/properties/${prop.id}`, { method: "DELETE" });
+                                if (res.ok) {
+                                  fetchPropertiesData();
+                                } else {
+                                  const err = await res.json().catch(() => ({}));
+                                  alert(err.error || "Failed to delete property");
+                                }
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -365,26 +406,86 @@ export default function PropertiesPage() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {unit.occupancy_status === "VACANT" ? (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-8 text-xs flex items-center gap-1"
-                                        onClick={() =>
-                                          setAssignTenantState({
-                                            isOpen: true,
-                                            unitId: unit.id,
-                                            unitCode: unit.unit_number,
-                                            propertyName: prop.name,
-                                            defaultRent: rentRupees,
-                                            defaultDeposit: depositRupees,
-                                          })
-                                        }
-                                      >
-                                        <UserPlus className="h-3.5 w-3.5 text-primary" />
-                                        <span>Assign Tenant</span>
-                                      </Button>
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-xs flex items-center gap-1"
+                                          onClick={() =>
+                                            setAssignTenantState({
+                                              isOpen: true,
+                                              unitId: unit.id,
+                                              unitCode: unit.unit_number,
+                                              propertyName: prop.name,
+                                              defaultRent: rentRupees,
+                                              defaultDeposit: depositRupees,
+                                            })
+                                          }
+                                        >
+                                          <UserPlus className="h-3.5 w-3.5 text-primary" />
+                                          <span>Assign Tenant</span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-xs flex items-center gap-1 border-border/70 hover:bg-surface-hover"
+                                          onClick={() =>
+                                            setEditRentState({
+                                              isOpen: true,
+                                              unitId: unit.id,
+                                              unitNumber: unit.unit_number,
+                                              propertyName: prop.name,
+                                              currentRentRupees: rentRupees,
+                                              currentDepositRupees: depositRupees,
+                                              isOccupied: false,
+                                            })
+                                          }
+                                        >
+                                          <Pencil className="h-3 w-3 text-primary" />
+                                          <span>Edit Rent</span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-xs text-text-muted hover:text-status-overdue-fg hover:bg-status-overdue-bg"
+                                          title="Delete unit"
+                                          onClick={async () => {
+                                            if (confirm(`Are you sure you want to delete unit "${unit.unit_number}"?`)) {
+                                              const res = await authFetch(`/api/units/${unit.id}`, { method: "DELETE" });
+                                              if (res.ok) {
+                                                fetchPropertiesData();
+                                              } else {
+                                                const err = await res.json().catch(() => ({}));
+                                                alert(err.error || "Failed to delete unit");
+                                              }
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     ) : (
                                       <div className="flex items-center justify-end gap-1.5">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-xs flex items-center gap-1 border-border/70 hover:bg-surface-hover"
+                                          onClick={() =>
+                                            setEditRentState({
+                                              isOpen: true,
+                                              unitId: unit.id,
+                                              unitNumber: unit.unit_number,
+                                              propertyName: prop.name,
+                                              currentRentRupees: rentRupees,
+                                              currentDepositRupees: depositRupees,
+                                              isOccupied: true,
+                                              tenantName: unit.activeTenancy?.tenant_name,
+                                            })
+                                          }
+                                        >
+                                          <Pencil className="h-3 w-3 text-primary" />
+                                          <span>Edit Rent</span>
+                                        </Button>
                                         <Button
                                           size="sm"
                                           variant="ghost"
@@ -499,6 +600,29 @@ export default function PropertiesPage() {
               tenancyId: "",
               unitCode: "",
               tenantName: "",
+            })
+          }
+          onSuccess={fetchPropertiesData}
+        />
+
+        <EditRentDialog
+          isOpen={editRentState.isOpen}
+          unitId={editRentState.unitId}
+          unitNumber={editRentState.unitNumber}
+          propertyName={editRentState.propertyName}
+          currentRentRupees={editRentState.currentRentRupees}
+          currentDepositRupees={editRentState.currentDepositRupees}
+          isOccupied={editRentState.isOccupied}
+          tenantName={editRentState.tenantName}
+          onClose={() =>
+            setEditRentState({
+              isOpen: false,
+              unitId: "",
+              unitNumber: "",
+              propertyName: "",
+              currentRentRupees: 0,
+              currentDepositRupees: 0,
+              isOccupied: false,
             })
           }
           onSuccess={fetchPropertiesData}

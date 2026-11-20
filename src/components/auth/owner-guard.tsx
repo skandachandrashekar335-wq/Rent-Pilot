@@ -3,15 +3,15 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isAllowedOwnerEmail } from "@/lib/auth/admin-allowlist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Building2, Lock, ArrowRight, Loader2 } from "lucide-react";
-
+import { Building2, Lock, ArrowRight, Loader2, ShieldAlert } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 
 export function OwnerGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, isOwner, memberships, loading, signInWithGoogle, refreshSession } = useAuth();
+  const { user, profile, isOwner, memberships, loading, signInWithGoogle, signOut, refreshSession } = useAuth();
   const [orgName, setOrgName] = useState("");
   const [billingDay, setBillingDay] = useState(10);
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
@@ -39,7 +39,7 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
             </div>
             <CardTitle className="text-xl">Owner Authentication Required</CardTitle>
             <CardDescription className="text-xs">
-              Access to the Property Owner Command Center requires an authorized Google account.
+              Access to the Property Owner Command Center requires an authorized administrator Google account.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -58,7 +58,58 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // 2. Authenticated but No Organization Setup Yet (New Owner Onboarding)
+  // 2. Hard-Locked Allowlist Check (skandachandrashekar335@gmail.com & chandraskekar335@gmail.com ONLY)
+  const isAllowlisted = isAllowedOwnerEmail(user.email);
+  if (!isAllowlisted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full border-border shadow-xl">
+          <CardHeader className="text-center space-y-2 pb-4">
+            <div className="h-12 w-12 rounded-full bg-status-overdue-bg mx-auto flex items-center justify-center text-status-overdue-fg border border-status-overdue-border">
+              <ShieldAlert className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-xl">Unauthorized Admin Account</CardTitle>
+            <CardDescription className="text-xs">
+              Access to the Property Owner Command Center is strictly restricted to designated administrator accounts.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 rounded-lg bg-surface-muted border border-border/60 text-center space-y-1">
+              <p className="text-[11px] text-text-muted">Signed in as:</p>
+              <p className="text-xs font-mono font-bold text-text-primary select-all">{user.email}</p>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await signOut();
+                  await signInWithGoogle();
+                }}
+                className="w-full h-10 text-xs font-medium border-border"
+              >
+                Logout / Switch Google Account
+              </Button>
+
+              <Link href="/portal" className="block w-full">
+                <Button className="w-full h-10 text-xs font-semibold">
+                  Go to Tenant Portal
+                </Button>
+              </Link>
+            </div>
+
+            <div className="text-center pt-2">
+              <Link href="/" className="text-xs text-text-muted hover:text-text-primary">
+                ← Return to RentPilot Home
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 3. Authenticated Admin but Organization Not Yet Linked (Fallback Onboarding)
   if (memberships.length === 0 && !isOwner) {
     const handleCreateOrg = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -66,7 +117,6 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
       setOrgError(null);
 
       try {
-        // Force fresh ID token immediately before submitting to avoid stale or expired session
         let freshToken: string | undefined;
         if (user && typeof user.getIdToken === "function") {
           try {
@@ -132,7 +182,7 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
                   Rental Business / Family Portfolio Name
                 </label>
                 <Input
-                  placeholder="e.g. Family Rentals or Skanda Properties"
+                  placeholder="e.g. Shekar Homes"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   required
@@ -168,6 +218,6 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // 3. Authorized Owner
+  // 4. Authorized Owner
   return <>{children}</>;
 }

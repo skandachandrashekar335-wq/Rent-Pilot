@@ -45,6 +45,20 @@ export const CreateUnitSchema = z.object({
 
 export const UpdateUnitSchema = CreateUnitSchema.partial().strict();
 
+export const EditUnitRentSchema = z.object({
+  unitNumber: z.string().trim().min(1).max(20).optional(),
+  floorNumber: z.coerce.number().int().min(0).max(50).optional().nullable(),
+  configurationLabel: z.string().trim().min(1).max(30).optional(),
+  baseRentRupees: z.coerce.number().min(0, "Rent cannot be negative").optional(),
+  securityDepositRupees: z.coerce.number().min(0, "Deposit cannot be negative").optional(),
+  baseRentPaise: z.coerce.number().int().min(0).optional(),
+  securityDepositPaise: z.coerce.number().int().min(0).optional(),
+  applyToActiveTenancy: z.boolean().optional().default(false),
+  occupancyStatus: OccupancyStatusEnum.optional(),
+  hasParking: z.boolean().optional(),
+  facilities: z.array(z.string()).optional(),
+}).strict();
+
 export const CreateTenantSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
   fullName: z.string().trim().min(2, "Full name must be at least 2 characters").max(100),

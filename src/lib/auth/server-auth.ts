@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
+import { isAllowedOwnerEmail } from "./admin-allowlist";
 
 export interface AuthenticatedUser {
   uid: string;
@@ -8,6 +9,7 @@ export interface AuthenticatedUser {
   profileId: string;
   organizationId?: string;
   isOwnerOrManager: boolean;
+  isOwnerAuthorized: boolean;
 }
 
 const isDevAuthBypassAllowed =
@@ -93,7 +95,7 @@ export async function verifyServerAuth(
 
   // Auto-provision profile on first real Google login if not found
   if (!profile) {
-    const fallbackName = name || email.split("@")[0] || "Property Owner";
+    const fallbackName = name || email.split("@")[0] || "User";
     const { data: newProfile, error: createProfileErr } = await supabase
       .from("profiles")
       .insert({
@@ -115,16 +117,15 @@ export async function verifyServerAuth(
     profile = newProfile;
   }
 
-  // Check organization membership
+  const isOwnerAuthorized = isAllowedOwnerEmail(email);
   let isOwnerOrManager = false;
   let activeOrgId = requiredOrgId;
 
-  // Explicit admin rule for powrrskanda@gmail.com
-  const isSuperAdmin = email === "powrrskanda@gmail.com";
-  if (isSuperAdmin) {
+  if (isOwnerAuthorized) {
+    // 1. Both allowlisted emails share the exact same primary Organization "Shekar Homes"
     let { data: shekarOrg } = await supabase
       .from("organizations")
-      .select("id, name")
+      .select("id, name, owner_profile_id")
       .eq("name", "Shekar Homes")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -140,7 +141,7 @@ export async function verifyServerAuth(
           currency: "INR",
           timezone: "Asia/Kolkata",
         })
-        .select("id, name")
+        .select("id, name, owner_profile_id")
         .single();
       shekarOrg = newOrg;
     }
@@ -162,79 +163,31 @@ export async function verifyServerAuth(
       activeOrgId = requiredOrgId || shekarOrg.id;
       isOwnerOrManager = true;
     }
-  }
-
-  if (requiredOrgId) {
-    const { data: membership } = await supabase
-      .from("organization_memberships")
-      .select("role, status")
-      .eq("organization_id", requiredOrgId)
-      .eq("profile_id", profile.id)
-      .eq("status", "ACTIVE")
-      .maybeSingle();
-
-    if (membership && (membership.role === "OWNER" || membership.role === "MANAGER")) {
-      isOwnerOrManager = true;
-    }
-  } else if (!isSuperAdmin) {
-    // Look up primary active organization membership
-    const { data: memberships } = await supabase
-      .from("organization_memberships")
-      .select("organization_id, role")
-      .eq("profile_id", profile.id)
-      .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false });
-
-    if (memberships && memberships.length > 0) {
-      activeOrgId = memberships[0].organization_id;
-      isOwnerOrManager = memberships.some((m) => m.role === "OWNER" || m.role === "MANAGER");
-    } else {
-      // Auto-provision default organization for new landlords on first login
-      const defaultOrgName = profile.full_name
-        ? `${profile.full_name}'s Properties`
-        : "My Properties";
-
-      let { data: defaultOrg } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("owner_profile_id", profile.id)
-        .limit(1)
+  } else {
+    // Non-allowlisted user: NEVER auto-provision an OWNER organization or membership!
+    if (requiredOrgId) {
+      const { data: membership } = await supabase
+        .from("organization_memberships")
+        .select("role, status")
+        .eq("organization_id", requiredOrgId)
+        .eq("profile_id", profile.id)
+        .eq("status", "ACTIVE")
         .maybeSingle();
 
-      if (!defaultOrg) {
-        const { data: newOrg, error: orgError } = await supabase
-          .from("organizations")
-          .insert({
-            name: defaultOrgName,
-            owner_profile_id: profile.id,
-            billing_day_of_month: 1,
-            currency: "INR",
-            timezone: "Asia/Kolkata",
-          })
-          .select("id")
-          .single();
-
-        if (orgError) {
-          console.error("[server-auth] Failed to auto-create default organization:", orgError);
-        } else {
-          defaultOrg = newOrg;
-        }
-      }
-
-      if (defaultOrg) {
-        await supabase
-          .from("organization_memberships")
-          .upsert(
-            {
-              organization_id: defaultOrg.id,
-              profile_id: profile.id,
-              role: "OWNER",
-              status: "ACTIVE",
-            },
-            { onConflict: "organization_id,profile_id" }
-          );
-        activeOrgId = defaultOrg.id;
+      if (membership && (membership.role === "OWNER" || membership.role === "MANAGER")) {
         isOwnerOrManager = true;
+      }
+    } else {
+      const { data: memberships } = await supabase
+        .from("organization_memberships")
+        .select("organization_id, role")
+        .eq("profile_id", profile.id)
+        .eq("status", "ACTIVE")
+        .order("created_at", { ascending: false });
+
+      if (memberships && memberships.length > 0) {
+        activeOrgId = memberships[0].organization_id;
+        isOwnerOrManager = memberships.some((m) => m.role === "OWNER" || m.role === "MANAGER");
       }
     }
   }
@@ -246,6 +199,30 @@ export async function verifyServerAuth(
       profileId: profile.id,
       organizationId: activeOrgId,
       isOwnerOrManager,
+      isOwnerAuthorized,
     },
   };
+}
+
+export async function requireOwnerAuth(
+  req: NextRequest,
+  requiredOrgId?: string
+): Promise<{ auth: AuthenticatedUser | null; errorResponse?: { message: string; code?: string; status: number } }> {
+  const { auth, errorResponse } = await verifyServerAuth(req, requiredOrgId);
+  if (errorResponse || !auth) {
+    return { auth: null, errorResponse };
+  }
+
+  if (!auth.isOwnerAuthorized) {
+    return {
+      auth: null,
+      errorResponse: {
+        message: "Access denied. Only authorized administrator accounts can access the Owner Portal.",
+        code: "auth/forbidden",
+        status: 403,
+      },
+    };
+  }
+
+  return { auth };
 }

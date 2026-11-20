@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { UserAccountMenu } from "@/components/auth/user-account-menu";
 import { useTranslation } from "./locale-context";
 
 interface TabItem {
@@ -56,6 +57,9 @@ export function TenantShell({ children }: { children: React.ReactNode }) {
           <NotificationBell />
           <LocaleSwitcher />
           <ThemeToggle />
+          <div className="pl-1 border-l border-border/60">
+            <UserAccountMenu />
+          </div>
         </div>
       </header>
 

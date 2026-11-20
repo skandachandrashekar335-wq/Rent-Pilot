@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyServerAuth } from "@/lib/auth/server-auth";
+import { requireOwnerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { UpdatePropertySchema } from "@/lib/validation/rental";
 
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
@@ -50,13 +50,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
-    }
-
-    if (!auth.isOwnerOrManager || !auth.organizationId) {
-      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -106,29 +102,67 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { auth, errorResponse } = await verifyServerAuth(req);
+    const { auth, errorResponse } = await requireOwnerAuth(req);
     if (!auth || errorResponse) {
       return NextResponse.json({ error: errorResponse?.message || "Unauthorized" }, { status: errorResponse?.status || 401 });
     }
 
-    if (!auth.isOwnerOrManager || !auth.organizationId) {
-      return NextResponse.json({ error: "Forbidden: Owner or manager permissions required" }, { status: 403 });
+    const supabase = createAdminSupabaseClient();
+
+    // Verify property exists and check for occupied units
+    const { data: units, error: unitsErr } = await supabase
+      .from("units")
+      .select("id, occupancy_status, unit_number")
+      .eq("property_id", id)
+      .eq("organization_id", auth.organizationId!);
+
+    if (unitsErr) {
+      console.error("[Property Units Fetch Error]", unitsErr);
+      return NextResponse.json({ error: "Failed to verify property units" }, { status: 500 });
     }
 
-    const supabase = createAdminSupabaseClient();
-    // Soft archive property
-    const { error } = await supabase
+    const occupiedUnits = (units || []).filter((u) => u.occupancy_status === "OCCUPIED");
+    if (occupiedUnits.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete property with occupied units (${occupiedUnits.map((u) => u.unit_number).join(", ")}). End active tenancies first.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Delete any vacant units first
+    if (units && units.length > 0) {
+      const unitIds = units.map((u) => u.id);
+      await supabase
+        .from("units")
+        .delete()
+        .in("id", unitIds)
+        .eq("organization_id", auth.organizationId!);
+    }
+
+    // Delete property
+    const { error: delErr } = await supabase
       .from("properties")
-      .update({ is_archived: true, updated_at: new Date().toISOString() })
+      .delete()
       .eq("id", id)
       .eq("organization_id", auth.organizationId!);
 
-    if (error) {
-      console.error("[Property Archive Error]", error);
-      return NextResponse.json({ error: "Failed to archive property" }, { status: 500 });
+    if (delErr) {
+      // Historical references exist - soft-archive
+      const { error: archiveErr } = await supabase
+        .from("properties")
+        .update({ is_archived: true, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("organization_id", auth.organizationId!);
+
+      if (archiveErr) {
+        console.error("[Property Archive Error]", archiveErr);
+        return NextResponse.json({ error: "Failed to delete property" }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ success: true, message: "Property archived successfully" });
+    return NextResponse.json({ success: true, message: "Property deleted successfully" });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
