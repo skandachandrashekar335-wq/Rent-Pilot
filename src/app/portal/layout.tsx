@@ -1,6 +1,8 @@
 import React from "react";
 import { TenantGuard } from "@/components/auth/tenant-guard";
 
+export const dynamic = "force-dynamic";
+
 export default function TenantLayout({
   children,
 }: {
