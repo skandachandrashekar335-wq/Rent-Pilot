@@ -29,7 +29,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { nameKey: "owner.actionCenter", href: "/dashboard/owner", icon: Zap, badge: 2 },
+  { nameKey: "owner.actionCenter", href: "/dashboard/owner", icon: Zap },
   { nameKey: "common.properties", href: "/dashboard/owner/properties", icon: Building2 },
   { nameKey: "common.billing", href: "/dashboard/owner/billing", icon: FileSpreadsheet },
   { nameKey: "common.maintenance", href: "/dashboard/owner/maintenance", icon: Wrench },

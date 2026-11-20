@@ -36,8 +36,8 @@ export function CreateTenancyDialog({
   const [tenantPhone, setTenantPhone] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]!);
   const [endDate, setEndDate] = useState("");
-  const [monthlyRent, setMonthlyRent] = useState(defaultRentRupees || 18000);
-  const [securityDeposit, setSecurityDeposit] = useState(defaultDepositRupees || 100000);
+  const [monthlyRent, setMonthlyRent] = useState(defaultRentRupees || 0);
+  const [securityDeposit, setSecurityDeposit] = useState(defaultDepositRupees || 0);
 
   // Increment schedule toggle & parameters
   const [hasIncrement, setHasIncrement] = useState(true);

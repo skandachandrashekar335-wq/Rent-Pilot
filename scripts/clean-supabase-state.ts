@@ -103,13 +103,14 @@ async function run() {
 
   // 3. Setup Organization "Shekar Homes"
   console.log("\nEnsuring Shekar Homes organization...");
-  let { data: org } = await supabase
+  let orgId = "";
+  const { data: existingOrg } = await supabase
     .from("organizations")
     .select("id, name, owner_profile_id")
     .eq("name", "Shekar Homes")
     .maybeSingle();
 
-  if (!org) {
+  if (!existingOrg) {
     const { data: createdOrg, error: orgErr } = await supabase
       .from("organizations")
       .insert({
@@ -121,23 +122,23 @@ async function run() {
       })
       .select()
       .single();
-    if (orgErr) throw orgErr;
-    org = createdOrg;
-    console.log(`Created Shekar Homes org: ${org.id}`);
+    if (orgErr || !createdOrg) throw orgErr || new Error("Failed to create org");
+    orgId = createdOrg.id;
+    console.log(`Created Shekar Homes org: ${orgId}`);
   } else {
-    // Update owner to primaryProfileId if needed
+    orgId = existingOrg.id;
     await supabase
       .from("organizations")
       .update({ owner_profile_id: primaryProfileId })
-      .eq("id", org.id);
-    console.log(`Using Shekar Homes org: ${org.id}`);
+      .eq("id", orgId);
+    console.log(`Using Shekar Homes org: ${orgId}`);
   }
 
   // Delete other organizations
   await supabase
     .from("organizations")
     .delete()
-    .neq("id", org.id);
+    .neq("id", orgId);
 
   // 4. Update organization_memberships
   console.log("\nUpdating organization memberships...");
@@ -152,7 +153,7 @@ async function run() {
       const { error: memErr } = await supabase
         .from("organization_memberships")
         .insert({
-          organization_id: org.id,
+          organization_id: orgId,
           profile_id: pId,
           role: "OWNER",
           status: "ACTIVE",

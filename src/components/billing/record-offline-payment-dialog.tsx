@@ -34,7 +34,7 @@ export function RecordOfflinePaymentDialog({
 }: RecordOfflinePaymentDialogProps) {
   const { user, activeOrganization } = useAuth();
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(preSelectedInvoiceId || invoices[0]?.id || "");
-  const [amountRupees, setAmountRupees] = useState<number>(invoices[0]?.balanceDueRupees || 18500);
+  const [amountRupees, setAmountRupees] = useState<number>(invoices[0]?.balanceDueRupees || 0);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CHEQUE" | "BANK_TRANSFER">("CASH");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]!);
   const [referenceNumber, setReferenceNumber] = useState("");

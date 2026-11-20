@@ -133,8 +133,8 @@ export default function OwnerOverviewPage() {
   }, [fetchDashboardData]);
 
   // Financial KPIs
-  const totalBilledRupees = invoices.reduce((sum, inv) => sum + paiseToRupees(inv.total_due_paise), 0) || 125000;
-  const collectedRupees = invoices.reduce((sum, inv) => sum + paiseToRupees(inv.amount_paid_paise), 0) || 95000;
+  const totalBilledRupees = invoices.reduce((sum, inv) => sum + paiseToRupees(inv.total_due_paise), 0);
+  const collectedRupees = invoices.reduce((sum, inv) => sum + paiseToRupees(inv.amount_paid_paise), 0);
   const pendingCount = pendingVerifications.length;
 
   return (
