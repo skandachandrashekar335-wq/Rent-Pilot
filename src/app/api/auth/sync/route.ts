@@ -48,9 +48,7 @@ async function handleAuthSync(req: NextRequest) {
         const descriptiveMessage =
           errorCode === "auth/id-token-expired"
             ? "Authentication token has expired. Please refresh your session."
-            : errorCode !== "unknown"
-            ? `Token verification failed [${errorCode}]: ${errorMessage}`
-            : "Invalid Firebase ID token";
+            : `Token verification failed [${errorCode}]: ${errorMessage}`;
         return NextResponse.json({ error: descriptiveMessage, code: errorCode }, { status: 401 });
       }
     }

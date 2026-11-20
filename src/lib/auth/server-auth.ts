@@ -52,9 +52,7 @@ export async function verifyServerAuth(
       const descriptiveMessage =
         errorCode === "auth/id-token-expired"
           ? "Authentication token has expired. Please refresh your session."
-          : errorCode !== "unknown"
-          ? `Token verification failed [${errorCode}]: ${errorMessage}`
-          : "Invalid or expired authentication token";
+          : `Token verification failed [${errorCode}]: ${errorMessage}`;
 
       return {
         auth: null,
