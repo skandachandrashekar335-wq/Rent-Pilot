@@ -5,26 +5,26 @@ import { useEffect, useRef, useState } from "react";
 const features = [
   {
     number: "01",
-    title: "Automated Monthly Rent & Variable Invoicing",
-    description: "Scheduled batch generation of recurring monthly rent with manual variable utility inputs (BESCOM electricity, water tankers, maintenance charges) calculated in exact 64-bit integer paise with zero floating-point error.",
-    visual: "billing",
-  },
-  {
-    number: "02",
-    title: "Split-Screen UPI Verification & UTR Deduplication",
-    description: "Two-step guided UPI payment flow with dynamic QR intent (PhonePe, GPay, Paytm, BHIM). Owners review payment screenshots side-by-side with bank references, backed by strict 12-digit UTR uniqueness constraints.",
-    visual: "upi",
-  },
-  {
-    number: "03",
-    title: "Overlap-Free Tenancies & Annual Escalations",
-    description: "PostgreSQL GiST temporal exclusion constraints prevent accidental unit double-booking. Set automatic annual rent increment schedules (e.g. 5% or 10%) that apply on exact lease anniversary dates.",
+    title: "Property & Unit Management",
+    description: "Organise independent houses, residential buildings, and rental units in one place. Maintain tenant assignments, contact information, and live occupancy status.",
     visual: "tenancy",
   },
   {
+    number: "02",
+    title: "Monthly Rent & Utility Billing",
+    description: "Prepare individual monthly rent bills with clear breakdowns for electricity, water, and maintenance. Total dues are calculated accurately with configured rent amounts and scheduled increments.",
+    visual: "billing",
+  },
+  {
+    number: "03",
+    title: "Direct UPI Payment Tracking",
+    description: "Tenants pay directly via their preferred UPI app and submit payment reference details. Review payment submissions side-by-side with bank references and keep your records reconciled.",
+    visual: "upi",
+  },
+  {
     number: "04",
-    title: "Maintenance Ticket Lifecycle & Contractor Expense Tracking",
-    description: "Tenants report plumbing, electrical, and structural issues with private photo uploads. Owners manage contractor quotes, approve repairs, track paise expenses against monthly yields, and log status milestones.",
+    title: "Maintenance & Digital Receipts",
+    description: "Tenants report plumbing, electrical, and household issues with photo attachments. Owners review requests, log repair expenses, and issue verifiable digital payment receipts.",
     visual: "maintenance",
   },
 ];
@@ -286,7 +286,7 @@ export function FeaturesSection() {
 
   return (
     <section
-      id="features"
+      id="capabilities"
       ref={sectionRef}
       className="relative py-24 lg:py-32"
     >
@@ -304,7 +304,7 @@ export function FeaturesSection() {
           >
             Everything landlords need.
             <br />
-            <span className="text-muted-foreground">Zero mock spreadsheets. Zero guesswork.</span>
+            <span className="text-muted-foreground">Built for clear, dependable rental operations.</span>
           </h2>
         </div>
 

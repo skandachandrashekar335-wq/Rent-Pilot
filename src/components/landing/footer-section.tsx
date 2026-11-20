@@ -12,28 +12,24 @@ interface FooterLink {
 }
 
 const footerLinks: Record<string, FooterLink[]> = {
-  Platform: [
-    { name: "Features", href: "#features" },
-    { name: "How it works", href: "#how-it-works" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Integrations", href: "#integrations" },
+  Capabilities: [
+    { name: "Property Management", href: "#capabilities" },
+    { name: "Monthly Billing", href: "#capabilities" },
+    { name: "UPI Payment Tracking", href: "#how-it-works" },
+    { name: "Maintenance Requests", href: "#capabilities" },
   ],
-  Access: [
+  Portals: [
     { name: "Owner Dashboard", href: "/dashboard/owner" },
     { name: "Tenant Portal", href: "/portal" },
-    { name: "Google Sign In", href: "/login" },
+    { name: "Sign In", href: "/login" },
+  ],
+  Platform: [
+    { name: "Security & Privacy", href: "#security" },
     { name: "System Health API", href: "/api/health", external: true },
   ],
-  Architecture: [
-    { name: "Security Model", href: "#security" },
-    { name: "Audit-Grade Ledger", href: "#reliability" },
-    { name: "Mumbai ap-south-1", href: "#architecture" },
-    { name: "Trilingual Engine", href: "#metrics", badge: "3 Dialects" },
-  ],
   Legal: [
-    { name: "Privacy Policy", href: "#" },
-    { name: "Terms of Service", href: "#" },
-    { name: "UPI Dispute Guidelines", href: "#" },
+    { name: "Privacy Policy", href: "#security" },
+    { name: "Terms of Service", href: "#security" },
   ],
 };
 
@@ -60,12 +56,12 @@ export function FooterSection() {
               </Link>
 
               <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-sm">
-                Next-generation residential rental operations for Indian landlords and tenants. Integer paise ledgers, instant UPI proof verification, and trilingual support.
+                A practical rental management platform for property owners, independent landlords, and tenants in India. Simple monthly billing, UPI payment tracking, and digital records.
               </p>
 
               <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Next.js 15 · Supabase PostgreSQL · Firebase Auth</span>
+                <span>PostgreSQL & Firebase Auth · End-to-End Secure</span>
               </div>
             </div>
 

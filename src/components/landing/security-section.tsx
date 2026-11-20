@@ -6,32 +6,32 @@ import { Shield, Lock, Eye, FileCheck } from "lucide-react";
 const securityFeatures = [
   {
     icon: Shield,
-    title: "PostgreSQL Row-Level Security",
-    description: "Multi-tenant isolation enforced directly at the database engine level via custom claims and session profile context.",
+    title: "Multi-Tenant Access Isolation",
+    description: "Database security policies ensure that property owners and tenants can only access the records specifically belonging to them.",
   },
   {
     icon: Lock,
-    title: "15-Minute Expiring Signed URLs",
-    description: "Private encrypted cloud buckets ensure payment screenshots and maintenance photos are never publicly accessible.",
+    title: "Private Document Storage",
+    description: "Payment proofs, receipts, and maintenance photos are stored in private cloud storage and accessed only through time-limited secure links.",
   },
   {
     icon: Eye,
-    title: "12-Digit UTR Bank Deduplication",
-    description: "Strict relational database uniqueness constraints prevent identical bank reference numbers from being credited twice.",
+    title: "Duplicate Reference Checks",
+    description: "Bank payment references and UTR numbers are verified against the existing ledger to prevent recording duplicate payments.",
   },
   {
     icon: FileCheck,
-    title: "Immutable Financial Audit Logs",
-    description: "Every invoice creation, manual utility addition, offline cash receipt, and payment verification is permanently logged.",
+    title: "Verifiable Financial Records",
+    description: "Every issued invoice, recorded offline payment, and verified settlement creates a permanent, timestamped entry in your financial history.",
   },
 ];
 
 const certifications = [
-  "PostgreSQL 15 RLS",
-  "AES-256 Cloud Storage",
-  "Firebase Auth Bridge",
-  "NPCI UPI Standards",
-  "Paise Integer Precision",
+  "Tenant Data Isolation",
+  "Private Cloud Storage",
+  "Google Authentication",
+  "Duplicate Reference Checks",
+  "Audit Ledger",
 ];
 
 export function SecuritySection() {
@@ -62,15 +62,15 @@ export function SecuritySection() {
           >
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
               <span className="w-8 h-px bg-foreground/30" />
-              Security Architecture
+              Security & Data Privacy
             </span>
             <h2 className="text-4xl lg:text-6xl font-display tracking-tight mb-8">
-              Trust is
+              Built with privacy and
               <br />
-              cryptographically enforced.
+              data integrity at the core.
             </h2>
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed mb-12">
-              Financial data and tenant privacy require strict boundary enforcement. RentPilot couples PostgreSQL Row-Level Security policies with time-bound signed access tokens so your property records remain strictly confidential.
+              Your rental records, financial transactions, and tenant information are private. RentPilot ensures multi-tenant data isolation and secure document storage so your records remain strictly confidential.
             </p>
 
             {/* Invariant Badges */}

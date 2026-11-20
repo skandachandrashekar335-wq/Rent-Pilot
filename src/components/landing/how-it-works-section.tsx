@@ -5,59 +5,64 @@ import { useEffect, useRef, useState } from "react";
 const steps = [
   {
     number: "I",
-    title: "Add Property & Onboard Tenants",
-    description: "Define multi-unit apartment complexes or independent floors, assign tenancy leases with PostgreSQL GiST non-overlap guarantees, and dispatch WhatsApp invite tokens with instant trilingual onboarding.",
-    code: `import { rentpilot } from '@rentpilot/core'
-
-// 1. Configure property & active units
-const property = await rentpilot.properties.create({
-  name: 'Indiranagar Residency',
-  type: 'multi_unit',
-  units: [
-    { name: 'Unit 201', baseRentPaise: 2800000n },
-    { name: 'Unit 202', baseRentPaise: 3200000n }
-  ]
-})
-
-// 2. Dispatch expiring WhatsApp tenant invite
-await rentpilot.invitations.sendWhatsApp({
-  phone: '+91 98800 12345',
-  unitId: property.units[0].id
-})`,
+    title: "Set Up Properties & Onboard Tenants",
+    description: "Add your residential properties, configure individual units with base rent and security deposit amounts, and assign tenants with secure portal invitation links.",
+    filename: "property-setup.json",
+    code: `{
+  "organization": "Shekar Homes",
+  "property": "Shekar Residency",
+  "propertyType": "INDEPENDENT_HOUSE",
+  "address": "Indiranagar, Bengaluru, KA 560038",
+  "unit": {
+    "unitNumber": "Unit 201",
+    "configuration": "2 BHK",
+    "baseMonthlyRent": "₹28,000",
+    "securityDeposit": "₹1,00,000",
+    "occupancyStatus": "OCCUPIED"
+  },
+  "tenant": {
+    "name": "Kiran Kumar",
+    "leaseStart": "2026-11-01",
+    "status": "ACTIVE"
+  }
+}`,
   },
   {
     number: "II",
-    title: "Generate Monthly INR Invoices",
-    description: "Automated 1st-of-month billing batches automatically compute recurring rent, apply annual percentage escalations, and allow manual utility charge entry (BESCOM power, water tankers) with 64-bit integer paise precision.",
-    code: `// Automated 1st-of-month billing run
-const batch = await rentpilot.billing.prepareCycle({
-  monthYear: '2026-12',
-  utilityCharges: [
-    { unitId: 'u_201', type: 'BESCOM_POWER', amountPaise: 185000n },
-    { unitId: 'u_201', type: 'WATER_TANKER', amountPaise: 65000n }
-  ]
-})
-
-// Immutable invoice generated with ₹0 rounding drift
-const invoice = await batch.finalize({ notifyTenant: true })`,
+    title: "Prepare Monthly Bills & Variable Charges",
+    description: "Each billing cycle, enter variable utility expenses like electricity and water. RentPilot compiles itemized invoices with clear dues, breakdown items, and payment due dates.",
+    filename: "monthly-invoice.json",
+    code: `{
+  "invoiceNumber": "INV-2026-11-U201",
+  "billingPeriod": "November 2026",
+  "dueDate": "2026-11-15",
+  "tenant": "Kiran Kumar",
+  "lineItems": [
+    { "type": "BASE_RENT", "label": "Monthly Rent", "amount": "₹28,000" },
+    { "type": "ELECTRICITY", "label": "Electricity (Meter)", "amount": "₹1,850" },
+    { "type": "WATER", "label": "Water Charges", "amount": "₹400" },
+    { "type": "MAINTENANCE", "label": "Common Maintenance", "amount": "₹600" }
+  ],
+  "totalAmountDue": "₹30,850",
+  "status": "ISSUED"
+}`,
   },
   {
     number: "III",
-    title: "Verify UPI & Issue Signed Receipts",
-    description: "Tenants pay via PhonePe, GPay, Paytm, or BHIM using dynamic UPI intent QR codes. Landlords inspect the screenshot proof split-screen, verify the 12-digit UTR, and release private 15-minute signed PDF receipts.",
-    code: `// Landlord split-screen UTR verification
-const payment = await rentpilot.payments.reconcileUTR({
-  invoiceId: invoice.id,
-  utrNumber: '431289012389',
-  amountPaidPaise: 3050000n,
-  proofBucket: 'payment-proofs'
-})
-
-// Issues private 15-minute signed PDF receipt
-const receiptUrl = await payment.generateSignedReceiptUrl({
-  expiresInSeconds: 900
-})
-// Verified · Sent via Email & WhatsApp in IST`,
+    title: "Verify UPI Payments & Maintain Records",
+    description: "Tenants pay directly to your personal UPI ID and submit bank reference details. Review submissions side-by-side, reconcile payments, and maintain verifiable payment records.",
+    filename: "payment-receipt.json",
+    code: `{
+  "receiptNumber": "RCP-2026-00001",
+  "targetInvoice": "INV-2026-11-U201",
+  "paymentMethod": "UPI / BANK_TRANSFER",
+  "bankReferenceNumber": "IMPS98237190",
+  "amountReceived": "₹30,850",
+  "invoiceBalanceDue": "₹0",
+  "paymentStatus": "VERIFIED & PAID",
+  "verifiedDate": "2026-11-10",
+  "settlement": "Direct to Landlord Bank Account"
+}`,
   },
 ];
 
@@ -172,7 +177,7 @@ export function HowItWorksSection() {
                   <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                 </div>
-                <span className="text-xs font-mono text-background/50">rentpilot-engine.ts</span>
+                <span className="text-xs font-mono text-background/60">{steps[activeStep].filename}</span>
               </div>
 
               {/* Code content */}
@@ -209,7 +214,7 @@ export function HowItWorksSection() {
               <div className="px-6 py-3.5 border-t border-background/10 flex items-center justify-between text-xs font-mono text-background/60">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>State: Deterministic ACID Execution</span>
+                  <span>Verified Ledger Records</span>
                 </div>
                 <span>IST +05:30</span>
               </div>

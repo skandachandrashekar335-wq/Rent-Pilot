@@ -8,10 +8,9 @@ import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 const navLinks = [
-  { name: "Features", href: "#features" },
-  { name: "How it works", href: "#how-it-works" },
-  { name: "Reliability", href: "#reliability" },
-  { name: "Pricing", href: "#pricing" },
+  { name: "Capabilities", href: "#capabilities" },
+  { name: "How It Works", href: "#how-it-works" },
+  { name: "Security & Privacy", href: "#security" },
 ];
 
 export function Navigation() {

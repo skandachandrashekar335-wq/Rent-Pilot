@@ -6,25 +6,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, QrCode } from "lucide-react";
 import { AnimatedSphere } from "./animated-sphere";
 
-const words = ["automate", "reconcile", "collect", "simplify"];
-
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
-  const [wordIndex, setWordIndex] = useState(0);
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setWordIndex((prev) => (prev + 1) % words.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <section className="relative min-h-[92vh] flex flex-col justify-center overflow-hidden pt-24 pb-20">
+    <section className="relative min-h-[88vh] flex flex-col justify-center overflow-hidden pt-24 pb-16 lg:pb-24">
       {/* Animated sphere background */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] md:w-[680px] md:h-[680px] lg:w-[840px] lg:h-[840px] opacity-40 pointer-events-none select-none">
         <AnimatedSphere />
@@ -63,43 +53,23 @@ export function HeroSection() {
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground bg-foreground/[0.03] px-3.5 py-1 rounded-full border border-foreground/10">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Precision Rental Operations & UPI Settlement for India
+          <span className="inline-flex items-center gap-2.5 text-xs font-mono uppercase tracking-widest text-muted-foreground bg-foreground/[0.03] px-3.5 py-1.5 rounded-full border border-foreground/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Rental & Property Management
           </span>
         </div>
         
         {/* Main headline */}
         <div className="mb-10 max-w-4xl">
           <h1 
-            className={`text-[clamp(2.8rem,8.5vw,7.5rem)] font-display leading-[0.93] tracking-tight transition-all duration-1000 ${
+            className={`text-[clamp(2.6rem,7.5vw,6.5rem)] font-display leading-[0.96] tracking-tight transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <span className="block">The platform</span>
-            <span className="block">
-              to{" "}
-              <span className="relative inline-block">
-                <span 
-                  key={wordIndex}
-                  className="inline-flex"
-                >
-                  {words[wordIndex].split("").map((char, i) => (
-                    <span
-                      key={`${wordIndex}-${i}`}
-                      className="inline-block animate-char-in"
-                      style={{
-                        animationDelay: `${i * 45}ms`,
-                      }}
-                    >
-                      {char}
-                    </span>
-                  ))}
-                </span>
-                <span className="absolute -bottom-2 left-0 right-0 h-3 bg-foreground/10" />
-              </span>
+            <span className="block">Rental management,</span>
+            <span className="block text-muted-foreground/80 mt-1">
+              without the monthly chaos.
             </span>
-            <span className="block text-muted-foreground/80 mt-1">rental operations.</span>
           </h1>
         </div>
         
@@ -110,7 +80,7 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            Automated ₹ INR monthly rent ledgers, 1-click UPI screenshot proof verification with UTR deduplication, WhatsApp tenant onboarding, and maintenance tracking with zero arithmetic drift.
+            Manage your properties, organise tenant information, prepare monthly rent bills and keep track of payments — all in one place.
           </p>
           
           {/* CTAs */}
@@ -142,36 +112,6 @@ export function HeroSection() {
         </div>
         
       </div>
-      
-      {/* Stats marquee - full width outside container */}
-      <div 
-        className={`mt-12 lg:mt-16 w-full border-y border-foreground/10 py-5 bg-background/50 backdrop-blur-sm transition-all duration-700 delay-500 ${
-          isVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div className="flex gap-16 marquee whitespace-nowrap">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="flex gap-16">
-              {[
-                { value: "₹0", label: "rounding drift", sub: "INTEGER PAISE PRECISION" },
-                { value: "15-min", label: "signed URLs", sub: "PRIVATE S3 RECEIPT STORAGE" },
-                { value: "3", label: "languages supported", sub: "ENGLISH · ಕನ್ನಡ · हिन्दी" },
-                { value: "100%", label: "overlap-free", sub: "POSTGRESQL GIST CONSTRAINTS" },
-                { value: "12-digit", label: "UTR validation", sub: "NPCI BANK PROOF DEDUPLICATION" },
-              ].map((stat) => (
-                <div key={`${stat.sub}-${i}`} className="flex items-baseline gap-4">
-                  <span className="text-3xl lg:text-4xl font-display">{stat.value}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {stat.label}
-                    <span className="block font-mono text-[10px] mt-0.5 tracking-wider text-foreground/50">{stat.sub}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      
     </section>
   );
 }

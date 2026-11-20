@@ -52,18 +52,18 @@ export function CtaSection() {
             <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
               {/* Left content */}
               <div className="flex-1">
-                <span className="inline-flex items-center gap-2 text-xs font-mono text-emerald-600 dark:text-emerald-400 mb-6 bg-emerald-500/10 px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6 bg-foreground/[0.03] px-3.5 py-1.5 rounded-full border border-foreground/10">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Instant Activation · ₹0 Setup
+                  Rental & Property Management
                 </span>
                 <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display tracking-tight mb-6 leading-[0.98]">
-                  Ready to put your rental
+                  Ready to simplify your
                   <br />
-                  operations on autopilot?
+                  rental operations?
                 </h2>
 
                 <p className="text-base lg:text-lg text-muted-foreground mb-10 leading-relaxed max-w-xl">
-                  Join smart landlords across India who save hours every billing cycle. Connect your properties, generate itemized INR invoices, and verify UPI receipts effortlessly.
+                  Set up your properties, generate accurate monthly rent bills, and keep track of tenant payments and maintenance with confidence.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -89,7 +89,7 @@ export function CtaSection() {
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-6 font-mono">
-                  Direct bank settlement · Zero intermediary commission
+                  Direct UPI settlement · Designed for property owners and tenants across India
                 </p>
               </div>
 
