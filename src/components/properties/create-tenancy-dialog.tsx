@@ -52,6 +52,7 @@ export function CreateTenancyDialog({
     return d.toISOString().split("T")[0]!;
   };
   const [nextIncrementDate, setNextIncrementDate] = useState(computeInitialNextDate());
+  const [generateInitialInvoice, setGenerateInitialInvoice] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +85,7 @@ export function CreateTenancyDialog({
         monthlyRentRupees: Number(monthlyRent),
         securityDepositRupees: Number(securityDeposit),
         status: "ACTIVE",
+        generateInitialInvoice,
       };
 
       if (hasIncrement) {
@@ -333,6 +335,25 @@ export function CreateTenancyDialog({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Initial Invoice Checkbox */}
+              <div className="p-3 rounded-lg border border-border bg-surface-muted/60 flex items-start justify-between gap-3">
+                <div className="space-y-0.5">
+                  <label htmlFor="generate-invoice-cb" className="text-xs font-semibold text-text-primary block cursor-pointer">
+                    Generate current month&apos;s rent invoice immediately
+                  </label>
+                  <p className="text-[11px] text-text-muted leading-normal">
+                    Creates an active payable invoice so the tenant can pay via UPI as soon as they log into their portal.
+                  </p>
+                </div>
+                <input
+                  id="generate-invoice-cb"
+                  type="checkbox"
+                  checked={generateInitialInvoice}
+                  onChange={(e) => setGenerateInitialInvoice(e.target.checked)}
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-ring cursor-pointer mt-0.5"
+                />
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">

@@ -95,6 +95,7 @@ export const CreateTenancySchema = z.object({
   status: TenancyStatusEnum.default("ACTIVE"),
   // Optional increment schedule configuration
   incrementSchedule: RentIncrementScheduleInputSchema.optional().nullable(),
+  generateInitialInvoice: z.boolean().optional().default(true),
 }).strict().refine(
   (data) => {
     if (data.endDate && data.startDate) {

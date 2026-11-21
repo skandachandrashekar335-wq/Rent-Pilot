@@ -50,6 +50,8 @@ export default function TenantHomePage() {
     propertyName: string;
     baseRentRupees: number;
     tenantName: string;
+    totalInvoicesCount: number;
+    outstandingInvoicesCount: number;
     activeInvoice: {
       id: string;
       invoiceNumber: string;
@@ -91,15 +93,21 @@ export default function TenantHomePage() {
 
             let activeInvoice = null;
             let receipt: RecentReceipt | null = null;
+            let totalInvoicesCount = 0;
+            let outstandingInvoicesCount = 0;
 
             if (invoicesRes.ok) {
               const invData = await invoicesRes.json();
               const invoices = (invData.invoices || []) as PortalInvoice[];
+              totalInvoicesCount = invoices.length;
 
-              // Find current unpaid or pending invoice
-              const unpaid = invoices.find(
+              const unpaidInvoices = invoices.filter(
                 (i) => i.status !== "PAID" && i.status !== "CANCELLED"
               );
+              outstandingInvoicesCount = unpaidInvoices.length;
+
+              // Find current unpaid or pending invoice
+              const unpaid = unpaidInvoices[0];
               if (unpaid) {
                 activeInvoice = {
                   id: unpaid.id,
@@ -146,6 +154,8 @@ export default function TenantHomePage() {
               propertyName,
               baseRentRupees,
               tenantName,
+              totalInvoicesCount,
+              outstandingInvoicesCount,
               activeInvoice,
             });
             setRecentReceipt(receipt);
@@ -285,6 +295,18 @@ export default function TenantHomePage() {
                 </Button>
               </Link>
             </CardFooter>
+          </Card>
+        ) : tenancyInfo.totalInvoicesCount === 0 ? (
+          <Card className="border-border">
+            <CardContent className="p-8 text-center space-y-3">
+              <div className="h-12 w-12 rounded-full bg-surface-muted text-text-muted mx-auto flex items-center justify-center border border-border">
+                <FileText className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold text-text-primary">No Invoices Issued Yet</h3>
+              <p className="text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
+                Your landlord hasn&apos;t generated your first monthly invoice yet. Once issued, your UPI payment link and screenshot uploader will appear here.
+              </p>
+            </CardContent>
           </Card>
         ) : (
           <Card className="border-border">

@@ -4,6 +4,7 @@ import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateTenancySchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
+import { generateInvoiceNumber } from "@/lib/domain/billing";
 import { sendTenantInvitationEmail, getAppBaseUrl } from "@/lib/notifications/brevo";
 
 export const dynamic = "force-dynamic";
@@ -202,7 +203,77 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Automatically Generate an Onboarding Invitation for the Tenant
+    // 5. Query unit and property metadata
+    const { data: unitData } = await supabase
+      .from("units")
+      .select("unit_number, property:properties(name)")
+      .eq("id", parsed.data.unitId)
+      .maybeSingle();
+
+    // 6. Optionally Generate Initial Rent Invoice
+    let initialInvoice = null;
+    if (parsed.data.generateInitialInvoice) {
+      const [startYearStr, startMonthStr] = parsed.data.startDate.split("-");
+      const billingYear = Number(startYearStr) || new Date().getFullYear();
+      const billingMonth = Number(startMonthStr) || (new Date().getMonth() + 1);
+
+      const dueDateObj = new Date(parsed.data.startDate);
+      dueDateObj.setDate(dueDateObj.getDate() + 7);
+      const dueDate = dueDateObj.toISOString().split("T")[0]!;
+
+      const invoiceNumber = generateInvoiceNumber(
+        billingYear,
+        billingMonth,
+        unitData?.unit_number || "UNIT"
+      );
+
+      const { data: invData, error: invErr } = await supabase
+        .from("invoices")
+        .upsert(
+          {
+            organization_id: orgId,
+            tenancy_id: tenancy.id,
+            invoice_number: invoiceNumber,
+            billing_period_year: billingYear,
+            billing_period_month: billingMonth,
+            issue_date: new Date().toISOString().split("T")[0]!,
+            due_date: dueDate,
+            rent_paise: Number(monthlyRentPaise),
+            electricity_paise: 0,
+            water_paise: 0,
+            maintenance_paise: 0,
+            other_charges_paise: 0,
+            previous_balance_paise: 0,
+            credits_paise: 0,
+            total_due_paise: Number(monthlyRentPaise),
+            amount_paid_paise: 0,
+            balance_due_paise: Number(monthlyRentPaise),
+            status: "ISSUED",
+            is_overdue: false,
+            variable_charges_confirmed: true,
+            notes: "Initial lease rent invoice",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "tenancy_id,billing_period_year,billing_period_month" }
+        )
+        .select()
+        .single();
+
+      if (!invErr && invData) {
+        initialInvoice = invData;
+        await supabase.from("invoice_items").insert({
+          organization_id: orgId,
+          invoice_id: invData.id,
+          item_type: "RENT",
+          label: "Base Monthly Rent",
+          amount_paise: Number(monthlyRentPaise),
+        });
+      } else if (invErr) {
+        console.warn("[POST /api/tenancies] Initial invoice creation warning:", invErr);
+      }
+    }
+
+    // 7. Automatically Generate an Onboarding Invitation for the Tenant
     const rawToken = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
     const expiresAt = new Date();
@@ -225,12 +296,6 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     const orgName = orgData?.name || "Shekar Homes";
 
-    const { data: unitData } = await supabase
-      .from("units")
-      .select("unit_number, property:properties(name)")
-      .eq("id", parsed.data.unitId)
-      .maybeSingle();
-
     const emailResult = await sendTenantInvitationEmail({
       tenantEmail: parsed.data.tenantEmail,
       tenantName: parsed.data.tenantFullName,
@@ -247,6 +312,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         tenancy,
+        initialInvoice,
         incrementSchedule: createdSchedule,
         inviteUrl,
         rawToken,
