@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeText } from "./sanitize";
 
 export const MAINTENANCE_CATEGORIES = [
   "PLUMBING",
@@ -38,8 +39,8 @@ export const MaintenancePaidByEnum = z.enum(MAINTENANCE_PAID_BY);
 
 export const CreateMaintenanceRequestSchema = z.object({
   tenancyId: z.string().uuid("Invalid tenancy ID").optional(),
-  title: z.string().trim().min(3, "Title must be at least 3 characters").max(120, "Title cannot exceed 120 characters"),
-  description: z.string().trim().min(10, "Description must be at least 10 characters").max(2000, "Description cannot exceed 2000 characters"),
+  title: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 3, "Title must be at least 3 characters"),
+  description: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 10, "Description must be at least 10 characters"),
   category: MaintenanceCategoryEnum,
   priority: MaintenancePriorityEnum.default("MEDIUM"),
   photoPaths: z.array(z.string().min(3)).max(4, "Maximum 4 photos allowed per ticket").default([]),
@@ -47,11 +48,11 @@ export const CreateMaintenanceRequestSchema = z.object({
 
 export const UpdateMaintenanceRequestSchema = z.object({
   status: MaintenanceStatusEnum.optional(),
-  comment: z.string().trim().min(1).max(1000).optional(),
+  comment: z.string().trim().transform(sanitizeText).optional(),
   isInternalNote: z.boolean().default(false),
   repairCostRupees: z.coerce.number().min(0, "Repair cost cannot be negative").optional(),
   paidBy: MaintenancePaidByEnum.optional(),
-  resolutionNotes: z.string().trim().max(1000).optional().nullable(),
+  resolutionNotes: z.string().trim().transform(sanitizeText).optional().nullable(),
 }).strict();
 
 export const MaintenanceUploadUrlSchema = z.object({

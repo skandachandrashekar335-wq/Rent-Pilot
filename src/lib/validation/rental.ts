@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { sanitizeText } from "./sanitize";
+
+export { sanitizeText };
 
 export const PropertyTypeEnum = z.enum([
   "INDEPENDENT_HOUSE",
@@ -15,15 +18,15 @@ export const IncrementTypeEnum = z.enum(["PERCENTAGE", "FIXED_AMOUNT"]);
 
 export const CreatePropertySchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
-  name: z.string().trim().min(2, "Property name must be at least 2 characters").max(100),
+  name: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 2, "Property name must be at least 2 characters"),
   propertyType: PropertyTypeEnum.default("INDEPENDENT_HOUSE"),
-  addressLine: z.string().trim().min(3, "Address is required"),
-  city: z.string().trim().default("Bengaluru"),
-  state: z.string().trim().default("Karnataka"),
+  addressLine: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 3, "Address is required"),
+  city: z.string().trim().transform(sanitizeText).default("Bengaluru"),
+  state: z.string().trim().transform(sanitizeText).default("Karnataka"),
   pincode: z.string().trim().regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
   totalFloors: z.coerce.number().int().min(1).max(50).default(1),
-  facilities: z.array(z.string()).default([]),
-  notes: z.string().optional().nullable(),
+  facilities: z.array(z.string().transform(sanitizeText)).default([]),
+  notes: z.string().optional().nullable().transform((v) => (v ? sanitizeText(v) : v)),
 }).strict();
 
 export const UpdatePropertySchema = CreatePropertySchema.partial().strict();
@@ -31,13 +34,13 @@ export const UpdatePropertySchema = CreatePropertySchema.partial().strict();
 export const CreateUnitSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID").optional(),
   propertyId: z.string().uuid("Invalid property ID"),
-  unitNumber: z.string().trim().min(1, "Unit number is required").max(20),
+  unitNumber: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 1, "Unit number is required"),
   floorNumber: z.coerce.number().int().min(0).max(50).optional().nullable(),
-  configurationLabel: z.string().trim().min(1).max(30).default("2BHK"),
+  configurationLabel: z.string().trim().transform(sanitizeText).default("2BHK"),
   bedrooms: z.coerce.number().int().min(0).max(20).default(2),
   bathrooms: z.coerce.number().int().min(1).max(20).default(1),
   hasParking: z.boolean().default(false),
-  facilities: z.array(z.string()).default([]),
+  facilities: z.array(z.string().transform(sanitizeText)).default([]),
   baseRentRupees: z.coerce.number().min(0, "Rent cannot be negative"),
   securityDepositRupees: z.coerce.number().min(0, "Deposit cannot be negative").default(0),
   occupancyStatus: OccupancyStatusEnum.default("VACANT"),
@@ -82,8 +85,8 @@ export const CreateTenancySchema = z.object({
   tenantId: z.string().uuid("Invalid tenant ID").optional(),
   // Tenant details (for inline auto-creation or lookup)
   tenantEmail: z.string().trim().toLowerCase().email("Invalid tenant email"),
-  tenantFullName: z.string().trim().min(2, "Tenant name is required"),
-  tenantPhone: z.string().trim().optional().nullable(),
+  tenantFullName: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 2, "Tenant name is required"),
+  tenantPhone: z.string().trim().optional().nullable().transform((v) => (v ? sanitizeText(v) : v)),
   // Tenancy financial & lease terms
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD").optional().nullable(),

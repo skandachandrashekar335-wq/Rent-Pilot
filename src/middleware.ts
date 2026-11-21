@@ -46,11 +46,15 @@ function checkRateLimit(
 }
 
 function getAllowedOrigins(): string[] {
+  const isDev = process.env.NODE_ENV === "development" || !process.env.VERCEL;
   const allowed = [
     "https://rent-pilot-nine.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:3008",
   ];
+
+  if (isDev) {
+    allowed.push("http://localhost:3000", "http://localhost:3008", "http://127.0.0.1:3000", "http://127.0.0.1:3008");
+  }
+
   if (process.env.NEXT_PUBLIC_APP_URL) {
     try {
       const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
@@ -72,9 +76,10 @@ export async function middleware(req: NextRequest) {
     "127.0.0.1";
 
   const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
   const allowedOrigins = getAllowedOrigins();
 
-  // 1. Strict CORS validation for API routes
+  // 1. Strict CORS validation for API routes (Control 16)
   if (origin) {
     const isOriginAllowed = allowedOrigins.includes(origin);
 
@@ -101,7 +106,39 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 2. Rate limiting on sensitive endpoints
+  // 2. CSRF Protection on state-changing API requests (Control 3)
+  const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  const isCronRoute = pathname.startsWith("/api/cron");
+
+  if (isStateChanging && !isCronRoute) {
+    // If an origin is provided, it must match an allowed origin
+    if (origin && !allowedOrigins.includes(origin)) {
+      return NextResponse.json(
+        { error: "CSRF Validation Failed: Unauthorized request origin." },
+        { status: 403 }
+      );
+    }
+
+    // If no origin but referer is provided, referer must originate from an allowed origin
+    if (!origin && referer) {
+      try {
+        const refUrl = new URL(referer);
+        if (!allowedOrigins.includes(refUrl.origin)) {
+          return NextResponse.json(
+            { error: "CSRF Validation Failed: Unauthorized referer origin." },
+            { status: 403 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          { error: "CSRF Validation Failed: Malformed referer." },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
+  // 3. Sliding-window rate limiting on sensitive endpoints (Control 7)
   let maxRequests = 120; // default 120 req / minute
   const windowMs = 60_000;
   let rateLimitPrefix = "general";
@@ -109,6 +146,12 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/api/cron")) {
     maxRequests = 10;
     rateLimitPrefix = "cron";
+  } else if (pathname.startsWith("/api/auth")) {
+    maxRequests = 30;
+    rateLimitPrefix = "auth";
+  } else if (pathname.startsWith("/api/storage")) {
+    maxRequests = 30;
+    rateLimitPrefix = "upload";
   } else if (
     pathname.startsWith("/api/payments") ||
     pathname.startsWith("/api/billing") ||
@@ -134,6 +177,16 @@ export async function middleware(req: NextRequest) {
   }
 
   const res = NextResponse.next();
+
+  // Security Headers for API responses (Controls 2, 3, 16)
+  res.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleusercontent.com https://pnbtexouxvlurtvphzpz.supabase.co https://*.gstatic.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://pnbtexouxvlurtvphzpz.supabase.co wss://pnbtexouxvlurtvphzpz.supabase.co https://api.brevo.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+  );
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
 
   // Attach CORS header if origin is approved
   if (origin && allowedOrigins.includes(origin)) {

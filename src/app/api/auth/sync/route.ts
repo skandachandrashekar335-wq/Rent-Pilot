@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { isAllowedOwnerEmail } from "@/lib/auth/admin-allowlist";
+import { safeError } from "@/lib/security/safe-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ async function handleAuthSync(req: NextRequest) {
     } catch (err: unknown) {
       const errorCode = (err as { code?: string })?.code || "unknown";
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error(`[auth-sync] Token verification failed [code: ${errorCode}]:`, errorMessage);
+      safeError(`[auth-sync] Token verification failed [code: ${errorCode}]:`, errorMessage);
 
       // Strictly disabled on Vercel or without explicit local flag
       const isDevAuthAllowed =
@@ -101,7 +102,7 @@ async function handleAuthSync(req: NextRequest) {
           .single();
 
         if (profileError || !newProfile) {
-          console.error("[auth-sync] Profile insert error:", profileError);
+          safeError("[auth-sync] Profile insert error:", profileError);
           return NextResponse.json({ error: "Failed to persist profile", code: "db/profile-error" }, { status: 500 });
         }
         profile = newProfile;
@@ -182,7 +183,7 @@ async function handleAuthSync(req: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
-    console.error("[auth-sync] Unexpected error:", err);
+    safeError("[auth-sync] Unexpected error:", err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

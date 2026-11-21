@@ -187,6 +187,17 @@ export function UserAccountMenu({ className }: { className?: string }) {
                   <ExternalLink className="h-3 w-3 text-text-muted" />
                 </Link>
                 <Link
+                  href="/dashboard/owner/settings"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 text-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded-lg transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Security & 2FA Settings</span>
+                  </span>
+                  <ExternalLink className="h-3 w-3 text-text-muted" />
+                </Link>
+                <Link
                   href="/portal"
                   onClick={() => setIsOpen(false)}
                   className="flex items-center justify-between px-3 py-2 text-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded-lg transition-colors"
@@ -196,14 +207,27 @@ export function UserAccountMenu({ className }: { className?: string }) {
                 </Link>
               </>
             ) : (
-              <Link
-                href="/portal"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center justify-between px-3 py-2 text-xs font-medium text-text-primary hover:bg-surface-hover rounded-lg transition-colors"
-              >
-                <span>Tenant Portal</span>
-                <ExternalLink className="h-3 w-3 text-text-muted" />
-              </Link>
+              <>
+                <Link
+                  href="/portal"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 text-xs font-medium text-text-primary hover:bg-surface-hover rounded-lg transition-colors"
+                >
+                  <span>Tenant Portal</span>
+                  <ExternalLink className="h-3 w-3 text-text-muted" />
+                </Link>
+                <Link
+                  href="/portal/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 text-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded-lg transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Profile & 2FA Security</span>
+                  </span>
+                  <ExternalLink className="h-3 w-3 text-text-muted" />
+                </Link>
+              </>
             )}
           </div>
 

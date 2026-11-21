@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeText } from "./sanitize";
 
 export const ProfileSyncSchema = z.object({
   idToken: z.string().min(10, "ID token is required"),
@@ -6,7 +7,7 @@ export const ProfileSyncSchema = z.object({
 }).strict();
 
 export const CreateOrganizationSchema = z.object({
-  name: z.string().trim().min(2, "Organization name must be at least 2 characters").max(100),
+  name: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 2, "Organization name must be at least 2 characters"),
   billingDayOfMonth: z.number().int().min(1).max(28).default(10),
   currency: z.string().default("INR"),
   timezone: z.string().default("Asia/Kolkata"),

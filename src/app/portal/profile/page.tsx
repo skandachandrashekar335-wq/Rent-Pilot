@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatINR } from "@/lib/utils";
 import { paiseToRupees } from "@/lib/domain/rent-increments";
 import { authFetch } from "@/lib/api-client";
+import { MfaSecurityCard } from "@/components/auth/mfa-security-card";
 
 interface TenancyDetails {
   id: string;
@@ -131,6 +132,9 @@ export default function TenantProfilePage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Two-Factor Authentication Security Card */}
+        <MfaSecurityCard />
 
         {/* Tenancy Details Card */}
         {loading ? (

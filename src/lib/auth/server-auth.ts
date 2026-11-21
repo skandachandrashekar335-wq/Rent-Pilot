@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebase/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { isAllowedOwnerEmail } from "./admin-allowlist";
+import { safeError } from "@/lib/security/safe-logger";
 
 export interface AuthenticatedUser {
   uid: string;
@@ -45,7 +46,7 @@ export async function verifyServerAuth(
   } catch (err: unknown) {
     const errorCode = (err as { code?: string })?.code || "unknown";
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error(`[server-auth] Token verification failed [code: ${errorCode}]:`, errorMessage);
+    safeError(`[server-auth] Token verification failed [code: ${errorCode}]:`, errorMessage);
 
     if (isDevAuthBypassAllowed && idToken === "dev-test-token") {
       uid = "dev-firebase-uid";
@@ -108,7 +109,7 @@ export async function verifyServerAuth(
       .single();
 
     if (createProfileErr) {
-      console.error("[server-auth] Failed to auto-provision profile:", createProfileErr);
+      safeError("[server-auth] Failed to auto-provision profile:", createProfileErr);
       return {
         auth: null,
         errorResponse: { message: "Failed to initialize user profile", code: "db/profile-error", status: 500 },

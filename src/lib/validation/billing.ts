@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePaymentReference } from "@/lib/domain/billing";
+import { sanitizeText } from "./sanitize";
 
 export const VariableChargeItemSchema = z.object({
   tenancyId: z.string().uuid("Invalid tenancy ID"),
@@ -40,7 +41,7 @@ export const SubmitPaymentProofSchema = z.object({
 
 export const ReviewPaymentSubmissionSchema = z.object({
   action: z.enum(["APPROVE", "REJECT"]),
-  rejectionReason: z.string().trim().optional().nullable(),
+  rejectionReason: z.string().trim().transform(sanitizeText).optional().nullable(),
 }).strict().refine((data) => {
   if (data.action === "REJECT" && (!data.rejectionReason || data.rejectionReason.length < 3)) {
     return false;
@@ -58,14 +59,14 @@ export const RecordOfflinePaymentSchema = z.object({
   amountRupees: z.coerce.number().positive("Payment amount must be positive"),
   paymentMethod: z.enum(["CASH", "CHEQUE", "BANK_TRANSFER"]),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  referenceNumber: z.string().trim().optional().nullable(),
-  notes: z.string().trim().optional().nullable(),
+  referenceNumber: z.string().trim().transform(sanitizeText).optional().nullable(),
+  notes: z.string().trim().transform(sanitizeText).optional().nullable(),
 }).strict();
 
 export const AdjustInvoiceSchema = z.object({
   adjustmentType: z.enum(["CREDIT", "CHARGE"]),
   amountRupees: z.coerce.number().positive("Adjustment amount must be positive"),
-  reason: z.string().trim().min(3, "Reason for adjustment is mandatory"),
+  reason: z.string().trim().transform(sanitizeText).refine((s) => s.length >= 3, "Reason for adjustment is mandatory"),
 }).strict();
 
 export type VariableChargeItemInput = z.infer<typeof VariableChargeItemSchema>;

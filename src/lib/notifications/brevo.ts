@@ -9,6 +9,7 @@
 
 import { formatINR } from "@/lib/utils";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
+import { safeServerFetch } from "@/lib/security/ssrf-guard";
 
 interface SendEmailParams {
   toEmail: string;
@@ -36,7 +37,7 @@ export async function sendBrevoEmail(params: SendEmailParams): Promise<{ success
     mocked = true;
   } else {
     try {
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      const res = await safeServerFetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
           "api-key": apiKey,

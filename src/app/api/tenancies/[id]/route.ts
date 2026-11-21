@@ -31,6 +31,18 @@ export async function GET(
       return NextResponse.json({ error: "Tenancy not found" }, { status: 404 });
     }
 
+    // Role-based authorization & multi-tenant isolation (BOLA / IDOR protection)
+    if (auth.isOwnerOrManager) {
+      if (tenancy.organization_id !== auth.organizationId) {
+        return NextResponse.json({ error: "Access denied: Tenancy belongs to another organization" }, { status: 403 });
+      }
+    } else {
+      const typedTenant = tenancy.tenant as { profile_id?: string | null; email?: string | null } | null;
+      if (typedTenant?.profile_id !== auth.profileId && typedTenant?.email !== auth.email) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
     return NextResponse.json({ tenancy });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

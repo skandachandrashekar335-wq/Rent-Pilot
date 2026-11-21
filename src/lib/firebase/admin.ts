@@ -1,6 +1,7 @@
 import type { App } from "firebase-admin/app";
 import type { Auth, DecodedIdToken } from "firebase-admin/auth";
 import crypto from "crypto";
+import { safeServerFetch } from "@/lib/security/ssrf-guard";
 
 export function cleanEnv(val?: string): string {
   if (!val) return "";
@@ -32,7 +33,7 @@ async function getGooglePublicCerts(): Promise<Record<string, string>> {
   if (cachedGoogleCerts && now < googleCertsExpiry) {
     return cachedGoogleCerts;
   }
-  const res = await fetch(
+  const res = await safeServerFetch(
     "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
   );
   if (!res.ok) {
