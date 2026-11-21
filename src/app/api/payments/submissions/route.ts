@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         status,
         tenancy:tenancies(
           id,
-          tenant:tenants(profile_id)
+          tenant:tenants(profile_id, email)
         )
       `)
       .eq("id", parsed.data.invoiceId)
@@ -49,8 +49,13 @@ export async function POST(req: NextRequest) {
 
     // Role check: Tenant can only submit for their own tenancy's invoice
     if (!auth.isOwnerOrManager) {
-      const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null } | null } | null;
-      if (typedTenancy?.tenant?.profile_id !== auth.profileId) {
+      const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null; email?: string | null } | null } | null;
+      const isMatchingProfile = typedTenancy?.tenant?.profile_id === auth.profileId;
+      const isMatchingEmail = Boolean(
+        typedTenancy?.tenant?.email &&
+        typedTenancy.tenant.email.toLowerCase() === auth.email.toLowerCase()
+      );
+      if (!isMatchingProfile && !isMatchingEmail) {
         return NextResponse.json({ error: "Access denied: You can only submit payment proofs for your own tenancy invoices" }, { status: 403 });
       }
     }

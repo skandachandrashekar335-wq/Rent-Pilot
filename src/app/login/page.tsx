@@ -2,9 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { isAllowedOwnerEmail } from "@/lib/auth/admin-allowlist";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, ArrowRight, Loader2, AlertCircle } from "lucide-react";
@@ -12,9 +14,11 @@ import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export default function LoginPage() {
+  const router = useRouter();
   const { user, loading, signInWithGoogle, signOut, error: authError } = useAuth();
   const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState("");
 
   const handleGoogleSignIn = async () => {
     setLoggingIn(true);
@@ -171,6 +175,32 @@ export default function LoginPage() {
             <div className="p-3 rounded bg-surface-muted border border-border/40 text-[11px] text-text-muted space-y-1">
               <p>• <strong>Landlords:</strong> Sign in with your owner Google account to manage houses and billing.</p>
               <p>• <strong>Tenants:</strong> Sign in using the exact email address where you received your landlord invitation.</p>
+            </div>
+
+            <div className="pt-2 border-t border-border/40 space-y-2">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const clean = inviteCode.trim().replace(/^.*\/invite\//i, "").split(/[?#]/)[0].trim();
+                  if (clean) router.push(`/invite/${clean}`);
+                }}
+                className="space-y-2"
+              >
+                <label className="text-xs font-medium text-text-primary block">
+                  Have an invitation link or token?
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Paste invite link or code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                  <Button type="submit" disabled={!inviteCode.trim()} size="sm" variant="outline">
+                    Redeem
+                  </Button>
+                </div>
+              </form>
             </div>
 
             <div className="text-center pt-2">

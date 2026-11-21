@@ -14,10 +14,19 @@ export const CreateOrganizationSchema = z.object({
 }).strict();
 
 export const CreateTenantInvitationSchema = z.object({
-  invitedEmail: z.string().trim().toLowerCase().email("Invalid email address"),
+  invitedEmail: z.string().trim().toLowerCase().email("Invalid email address").optional(),
+  email: z.string().trim().toLowerCase().email("Invalid email address").optional(),
+  fullName: z.string().trim().transform(sanitizeText).optional().nullable(),
+  phone: z.string().trim().optional().nullable(),
   unitId: z.string().uuid("Invalid unit UUID").optional().nullable(),
   expiresInDays: z.number().int().min(1).max(30).default(7),
-}).strict();
+}).transform((data) => ({
+  ...data,
+  invitedEmail: (data.invitedEmail || data.email || "").toLowerCase(),
+})).refine((d) => Boolean(d.invitedEmail), {
+  message: "Invalid email address",
+  path: ["invitedEmail"],
+});
 
 export const AcceptInvitationSchema = z.object({
   token: z.string().min(16, "Invalid invitation token"),

@@ -10,6 +10,23 @@
 import { formatINR } from "@/lib/utils";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { safeServerFetch } from "@/lib/security/ssrf-guard";
+import { safeError } from "@/lib/security/safe-logger";
+
+export function getAppBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`.replace(/\/+$/, "");
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "https://rent-pilot-nine.vercel.app";
+  }
+  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
 
 interface SendEmailParams {
   toEmail: string;
@@ -466,4 +483,94 @@ export async function sendMaintenanceStatusUpdatedToTenantEmail(params: {
     subject,
     htmlContent,
   });
+}
+
+/**
+ * Send onboarding invitation email to tenant with secure token link (Phase 4)
+ */
+export async function sendTenantInvitationEmail(params: {
+  tenantEmail: string;
+  tenantName: string;
+  organizationName: string;
+  propertyName?: string;
+  unitCode?: string;
+  rawToken: string;
+  expiresInDays?: number;
+  organizationId?: string;
+}): Promise<{ sent: boolean; inviteUrl: string; error?: string }> {
+  const baseUrl = getAppBaseUrl();
+  const inviteUrl = `${baseUrl}/invite/${params.rawToken}`;
+  const subject = `Rental Invitation: Join ${params.organizationName} on RentPilot`;
+  const locationDetails = [params.unitCode, params.propertyName].filter(Boolean).join(" at ");
+
+  const htmlContent = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 8px; color: #0f172a; background-color: #ffffff;">
+      <div style="margin-bottom: 24px;">
+        <span style="display: inline-block; padding: 5px 10px; background: #0f172a; color: #ffffff; font-weight: 700; border-radius: 4px; font-size: 13px; letter-spacing: 0.5px;">◈ RentPilot Gateway</span>
+      </div>
+      <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #0f172a;">Hello ${params.tenantName || "Resident"},</h2>
+      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px;">
+        You have been officially invited by <strong>${params.organizationName}</strong>${locationDetails ? ` for <strong>${locationDetails}</strong>` : ""} to manage your rental tenancy, view monthly invoices, and submit rent receipts through the RentPilot Tenant Portal.
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 18px; margin: 20px 0;">
+        <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 8px;">
+          Invitation Details
+        </div>
+        <div style="font-size: 13px; color: #334155; line-height: 1.6;">
+          <div>• <strong>Invited Email:</strong> <span style="font-family: monospace; color: #0f172a;">${params.tenantEmail}</span></div>
+          ${params.unitCode ? `<div>• <strong>Assigned Unit:</strong> ${params.unitCode}</div>` : ""}
+          ${params.propertyName ? `<div>• <strong>Property:</strong> ${params.propertyName}</div>` : ""}
+          <div>• <strong>Valid For:</strong> ${params.expiresInDays || 7} days</div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${inviteUrl}" style="display: inline-block; padding: 12px 28px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          Accept Invitation & Enter Portal →
+        </a>
+      </div>
+
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+        <p style="margin: 0 0 8px 0;">
+          If the button does not work, copy and paste this link into your browser:
+        </p>
+        <p style="margin: 0; word-break: break-all; font-family: monospace; color: #64748b;">
+          ${inviteUrl}
+        </p>
+        <p style="margin-top: 12px; font-size: 11px;">
+          Note: Please sign in with your Google account associated with <strong>${params.tenantEmail}</strong> to activate your tenancy.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await sendBrevoEmail({
+      toEmail: params.tenantEmail,
+      toName: params.tenantName || "Tenant",
+      subject,
+      htmlContent,
+      organizationId: params.organizationId,
+      templateName: "TENANT_INVITATION",
+    });
+
+    if (!res.success) {
+      safeError(`[brevo] Failed to deliver tenant invitation email to ${params.tenantEmail}:`, res.error);
+    }
+
+    return {
+      sent: res.success,
+      inviteUrl,
+      error: res.error,
+    };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    safeError("[brevo] sendTenantInvitationEmail exception:", errorMsg);
+    return {
+      sent: false,
+      inviteUrl,
+      error: errorMsg,
+    };
+  }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -10,30 +10,26 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
+    const { token: rawToken } = await params;
+    const token = (rawToken || "")
+      .trim()
+      .replace(/^.*\/invite\//i, "")
+      .split(/[?#]/)[0]
+      .trim();
+
     if (!token) {
-      return NextResponse.json({ error: "Missing token" }, { status: 400 });
+      return NextResponse.json({ error: "Missing invitation token" }, { status: 400 });
     }
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Must be signed in to accept an invitation" }, { status: 401 });
+    const { auth, errorResponse } = await verifyServerAuth(req);
+    if (!auth || errorResponse) {
+      return NextResponse.json(
+        { error: errorResponse?.message || "Must be signed in to accept an invitation" },
+        { status: errorResponse?.status || 401 }
+      );
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    let userEmail: string;
-
-    try {
-      const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken);
-      userEmail = (decoded.email || "").toLowerCase();
-    } catch {
-      if (process.env.NODE_ENV === "development") {
-        userEmail = "dev@rentpilot.app";
-      } else {
-        return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 });
-      }
-    }
-
+    const userEmail = auth.email.toLowerCase();
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     const supabase = createAdminSupabaseClient();
 
@@ -41,19 +37,10 @@ export async function POST(
       .from("tenant_invitations")
       .select("*")
       .eq("token_hash", tokenHash)
-      .single();
+      .maybeSingle();
 
     if (error || !invitation) {
-      return NextResponse.json({ error: "Invitation not found" }, { status: 404 });
-    }
-
-    if (invitation.status !== "PENDING") {
-      return NextResponse.json({ error: `Invitation is already ${invitation.status.toLowerCase()}` }, { status: 400 });
-    }
-
-    if (new Date(invitation.expires_at) < new Date()) {
-      await supabase.from("tenant_invitations").update({ status: "EXPIRED" }).eq("id", invitation.id);
-      return NextResponse.json({ error: "This invitation has expired" }, { status: 400 });
+      return NextResponse.json({ error: "Invitation not found or invalid" }, { status: 404 });
     }
 
     // MANDATORY SECURITY CHECK: User email must match invited email
@@ -64,6 +51,37 @@ export async function POST(
         },
         { status: 403 }
       );
+    }
+
+    if (invitation.status === "ACCEPTED") {
+      // Ensure tenant profile is linked even if already marked accepted
+      await supabase
+        .from("tenants")
+        .update({
+          profile_id: auth.profileId,
+          updated_at: new Date().toISOString(),
+        })
+        .ilike("email", invitation.invited_email);
+
+      return NextResponse.json({
+        success: true,
+        message: "Invitation is already active. Welcome to your rental portal!",
+        redirectTo: "/portal",
+        organizationId: invitation.organization_id,
+        unitId: invitation.unit_id,
+      });
+    }
+
+    if (invitation.status !== "PENDING") {
+      return NextResponse.json(
+        { error: `This invitation is ${invitation.status.toLowerCase()}` },
+        { status: 400 }
+      );
+    }
+
+    if (new Date(invitation.expires_at) < new Date()) {
+      await supabase.from("tenant_invitations").update({ status: "EXPIRED" }).eq("id", invitation.id);
+      return NextResponse.json({ error: "This invitation has expired" }, { status: 400 });
     }
 
     // Mark invitation ACCEPTED
@@ -80,26 +98,18 @@ export async function POST(
     }
 
     // Link tenant profile_id upon invitation acceptance
-    const { data: userProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", userEmail)
-      .maybeSingle();
-
-    if (userProfile) {
-      await supabase
-        .from("tenants")
-        .update({
-          profile_id: userProfile.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("organization_id", invitation.organization_id)
-        .eq("email", invitation.invited_email);
-    }
+    await supabase
+      .from("tenants")
+      .update({
+        profile_id: auth.profileId,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", invitation.invited_email);
 
     return NextResponse.json({
       success: true,
       message: "Invitation accepted. Welcome to your rental portal!",
+      redirectTo: "/portal",
       organizationId: invitation.organization_id,
       unitId: invitation.unit_id,
     });

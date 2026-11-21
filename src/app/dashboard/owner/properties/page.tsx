@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, Plus, Users, Calendar, TrendingUp, UserPlus, LogOut, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Building2, Plus, Users, Calendar, TrendingUp, UserPlus, LogOut, Loader2, Pencil, Trash2, Share2 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -18,6 +18,7 @@ import { CreateTenancyDialog } from "@/components/properties/create-tenancy-dial
 import { ApplyIncrementDialog } from "@/components/properties/apply-increment-dialog";
 import { EndTenancyDialog } from "@/components/properties/end-tenancy-dialog";
 import { EditRentDialog } from "@/components/properties/edit-rent-dialog";
+import { ShareInviteDialog } from "@/components/properties/share-invite-dialog";
 import { authFetch } from "@/lib/api-client";
 
 interface UnitData {
@@ -34,6 +35,8 @@ interface UnitData {
   activeTenancy?: {
     id: string;
     tenant_name: string;
+    tenant_email?: string;
+    is_linked?: boolean;
     monthly_rent_paise: number;
     start_date: string;
     increment_schedule?: string | null;
@@ -124,6 +127,24 @@ export default function PropertiesPage() {
     isOccupied: false,
   });
 
+  const [shareInviteState, setShareInviteState] = useState<{
+    isOpen: boolean;
+    unitId: string;
+    unitNumber: string;
+    propertyName: string;
+    tenantName: string;
+    tenantEmail: string;
+    isLinked: boolean;
+  }>({
+    isOpen: false,
+    unitId: "",
+    unitNumber: "",
+    propertyName: "",
+    tenantName: "",
+    tenantEmail: "",
+    isLinked: false,
+  });
+
   const fetchPropertiesData = useCallback(async () => {
     try {
       if (!user) {
@@ -151,7 +172,7 @@ export default function PropertiesPage() {
         rent_increment_schedules?: Array<{ increment_value: number; next_increment_date: string }>;
         unit_id: string;
         id: string;
-        tenant?: { full_name?: string };
+        tenant?: { full_name?: string; email?: string; profile_id?: string | null };
         monthly_rent_paise: number;
         start_date: string;
       }) => {
@@ -160,6 +181,8 @@ export default function PropertiesPage() {
           activeTenanciesMap.set(t.unit_id, {
             id: t.id,
             tenant_name: t.tenant?.full_name || "Unknown Tenant",
+            tenant_email: t.tenant?.email || "",
+            is_linked: Boolean(t.tenant?.profile_id),
             monthly_rent_paise: t.monthly_rent_paise,
             start_date: t.start_date,
             increment_schedule: schedule
@@ -470,6 +493,26 @@ export default function PropertiesPage() {
                                           size="sm"
                                           variant="outline"
                                           className="h-8 text-xs flex items-center gap-1 border-border/70 hover:bg-surface-hover"
+                                          title="Share Tenant Portal Invitation Link"
+                                          onClick={() =>
+                                            setShareInviteState({
+                                              isOpen: true,
+                                              unitId: unit.id,
+                                              unitNumber: unit.unit_number,
+                                              propertyName: prop.name,
+                                              tenantName: unit.activeTenancy?.tenant_name || "Resident",
+                                              tenantEmail: unit.activeTenancy?.tenant_email || "",
+                                              isLinked: Boolean(unit.activeTenancy?.is_linked),
+                                            })
+                                          }
+                                        >
+                                          <Share2 className="h-3 w-3 text-primary" />
+                                          <span>Share Link</span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-xs flex items-center gap-1 border-border/70 hover:bg-surface-hover"
                                           onClick={() =>
                                             setEditRentState({
                                               isOpen: true,
@@ -626,6 +669,27 @@ export default function PropertiesPage() {
             })
           }
           onSuccess={fetchPropertiesData}
+        />
+
+        <ShareInviteDialog
+          isOpen={shareInviteState.isOpen}
+          unitId={shareInviteState.unitId}
+          unitNumber={shareInviteState.unitNumber}
+          propertyName={shareInviteState.propertyName}
+          tenantName={shareInviteState.tenantName}
+          tenantEmail={shareInviteState.tenantEmail}
+          isLinked={shareInviteState.isLinked}
+          onClose={() =>
+            setShareInviteState({
+              isOpen: false,
+              unitId: "",
+              unitNumber: "",
+              propertyName: "",
+              tenantName: "",
+              tenantEmail: "",
+              isLinked: false,
+            })
+          }
         />
       </div>
     </OwnerShell>

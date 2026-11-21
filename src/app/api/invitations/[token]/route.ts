@@ -9,8 +9,14 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const { token: rawToken } = await params;
+    const token = (rawToken || "")
+      .trim()
+      .replace(/^.*\/invite\//i, "")
+      .split(/[?#]/)[0]
+      .trim();
+
+    if (!token || token.length < 8) {
       return NextResponse.json({ error: "Invalid invitation token" }, { status: 400 });
     }
 

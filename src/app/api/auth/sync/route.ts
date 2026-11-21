@@ -164,14 +164,64 @@ async function handleAuthSync(req: NextRequest) {
       memberships = ownerMemberships || [];
     }
 
-    // 3. Check for Active Tenancies / Invitations
-    const { data: invitations } = await supabase
-      .from("tenant_invitations")
-      .select("*, organization:organizations(name)")
-      .eq("invited_email", email.toLowerCase())
-      .eq("status", "ACCEPTED");
+    // 3. Auto-Claim Pending Tenant Invitations & Bind Profile ID (Phase 3)
+    const normalizedEmail = email.toLowerCase();
 
-    const isTenant = Boolean(invitations && invitations.length > 0);
+    // Query and auto-claim pending invitations matching this user's email
+    const { data: pendingInvitations } = await supabase
+      .from("tenant_invitations")
+      .select("id, organization_id, unit_id")
+      .ilike("invited_email", normalizedEmail)
+      .eq("status", "PENDING");
+
+    if (pendingInvitations && pendingInvitations.length > 0) {
+      await supabase
+        .from("tenant_invitations")
+        .update({
+          status: "ACCEPTED",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", pendingInvitations.map((p) => p.id));
+    }
+
+    // Link any unlinked tenant rows with matching email to this profile
+    await supabase
+      .from("tenants")
+      .update({
+        profile_id: profile.id,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", normalizedEmail);
+
+    // Check for linked tenant records or active/accepted invitations
+    const { data: tenantRecords } = await supabase
+      .from("tenants")
+      .select("id")
+      .or(`profile_id.eq.${profile.id},email.ilike.${normalizedEmail}`);
+
+    const tenantIds = (tenantRecords || []).map((t) => t.id);
+
+    let hasActiveTenancy = false;
+    if (tenantIds.length > 0) {
+      const { data: activeTenancies } = await supabase
+        .from("tenancies")
+        .select("id")
+        .in("tenant_id", tenantIds)
+        .in("status", ["ACTIVE", "UPCOMING"])
+        .limit(1);
+
+      hasActiveTenancy = Boolean(activeTenancies && activeTenancies.length > 0);
+    }
+
+    const { data: acceptedInvitations } = await supabase
+      .from("tenant_invitations")
+      .select("id")
+      .ilike("invited_email", normalizedEmail)
+      .eq("status", "ACCEPTED")
+      .limit(1);
+
+    const hasAcceptedInvitation = Boolean(acceptedInvitations && acceptedInvitations.length > 0);
+    const isTenant = hasActiveTenancy || hasAcceptedInvitation || (tenantRecords && tenantRecords.length > 0);
     const isOwner = Boolean(isOwnerAuthorized && memberships.length > 0);
 
     return NextResponse.json({
@@ -180,6 +230,7 @@ async function handleAuthSync(req: NextRequest) {
       isOwner,
       isOwnerAuthorized,
       isTenant,
+      hasActiveTenancy,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

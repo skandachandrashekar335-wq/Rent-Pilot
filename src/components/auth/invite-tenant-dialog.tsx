@@ -35,6 +35,8 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
     inviteUrl: string;
     expiresAt: string;
     email: string;
+    emailSent?: boolean;
+    emailError?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -96,12 +98,14 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
         throw new Error(data.error || "Failed to create invitation");
       }
 
-      const inviteUrl = `${window.location.origin}/invite/${data.invitation.token}`;
+      const inviteUrl = data.inviteUrl || `${window.location.origin}/invite/${data.rawToken}`;
       setGeneratedInvite({
-        token: data.invitation.token,
+        token: data.rawToken,
         inviteUrl,
-        expiresAt: data.invitation.expires_at,
-        email: data.invitation.email,
+        expiresAt: data.invitation?.expires_at,
+        email: email.trim().toLowerCase(),
+        emailSent: Boolean(data.emailSent),
+        emailError: data.emailError,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate invitation");
@@ -243,6 +247,18 @@ export function InviteTenantDialog({ isOpen, onClose }: InviteTenantDialogProps)
               <div className="p-3 rounded-md bg-status-paid-bg border border-status-paid-fg/20 text-xs text-status-paid-fg font-medium">
                 Invitation created successfully for <strong>{generatedInvite.email}</strong>.
               </div>
+
+              {generatedInvite.emailSent ? (
+                <div className="p-2.5 rounded bg-surface-muted border border-border/40 text-xs flex items-center gap-2 text-status-paid-fg">
+                  <Check className="h-4 w-4 shrink-0" />
+                  <span>Invitation email dispatched to {generatedInvite.email} via Brevo.</span>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded bg-surface-muted border border-border/40 text-xs flex items-center gap-2 text-status-pending-fg">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Manual share required — share link or WhatsApp below.</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-text-primary mb-1">

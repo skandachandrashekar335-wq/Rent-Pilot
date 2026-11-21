@@ -41,12 +41,21 @@ export async function GET(req: NextRequest) {
     if (auth.isOwnerOrManager && auth.organizationId) {
       query = query.eq("organization_id", auth.organizationId);
     } else {
-      // Tenant: find tenancies belonging to this tenant profile
-      const { data: tenant } = await supabase
+      // Tenant: find tenancies belonging to this tenant profile or email
+      let { data: tenant } = await supabase
         .from("tenants")
         .select("id")
         .eq("profile_id", auth.profileId)
         .maybeSingle();
+
+      if (!tenant) {
+        const { data: tenantByEmail } = await supabase
+          .from("tenants")
+          .select("id")
+          .ilike("email", auth.email)
+          .maybeSingle();
+        tenant = tenantByEmail;
+      }
 
       if (!tenant) {
         return NextResponse.json({ invoices: [] });

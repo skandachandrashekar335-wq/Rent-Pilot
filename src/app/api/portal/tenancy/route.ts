@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       const { data: tenantByEmail } = await supabase
         .from("tenants")
         .select("id, full_name, email, phone, profile_id")
-        .eq("email", auth.email)
+        .ilike("email", auth.email)
         .maybeSingle();
 
       if (tenantByEmail) {

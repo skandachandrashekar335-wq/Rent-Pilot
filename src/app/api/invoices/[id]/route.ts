@@ -52,9 +52,13 @@ export async function GET(
         return NextResponse.json({ error: "Access denied: Invoice belongs to another organization" }, { status: 403 });
       }
     } else {
-      const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null } | null } | null;
-      const tenantProfileId = typedTenancy?.tenant?.profile_id;
-      if (tenantProfileId !== auth.profileId) {
+      const typedTenancy = invoice.tenancy as { tenant?: { profile_id?: string | null; email?: string | null } | null } | null;
+      const isMatchingProfile = typedTenancy?.tenant?.profile_id === auth.profileId;
+      const isMatchingEmail = Boolean(
+        typedTenancy?.tenant?.email &&
+        typedTenancy.tenant.email.toLowerCase() === auth.email.toLowerCase()
+      );
+      if (!isMatchingProfile && !isMatchingEmail) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 });
       }
       if (invoice.status === "DRAFT") {

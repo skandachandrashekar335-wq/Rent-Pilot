@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateTenantInvitationSchema } from "@/lib/validation/auth";
+import { sendTenantInvitationEmail, getAppBaseUrl } from "@/lib/notifications/brevo";
 
 export const dynamic = "force-dynamic";
 
@@ -65,13 +66,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to generate invitation" }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteUrl = `${appUrl}/invite/${rawToken}`;
+    const { data: orgData } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", auth.organizationId)
+      .maybeSingle();
+
+    let unitNumber: string | undefined;
+    let propertyName: string | undefined;
+
+    if (parsed.data.unitId) {
+      const { data: uData } = await supabase
+        .from("units")
+        .select("unit_number, property:properties(name)")
+        .eq("id", parsed.data.unitId)
+        .maybeSingle();
+      unitNumber = uData?.unit_number;
+      propertyName = (uData?.property as unknown as { name?: string })?.name;
+    }
+
+    const emailResult = await sendTenantInvitationEmail({
+      tenantEmail: parsed.data.invitedEmail,
+      tenantName: parsed.data.fullName || parsed.data.invitedEmail.split("@")[0],
+      organizationName: orgData?.name || "Shekar Homes",
+      propertyName,
+      unitCode: unitNumber,
+      rawToken,
+      expiresInDays: parsed.data.expiresInDays || 7,
+      organizationId: auth.organizationId,
+    });
+
+    const inviteUrl = emailResult.inviteUrl || `${getAppBaseUrl()}/invite/${rawToken}`;
 
     return NextResponse.json({
       invitation,
       rawToken,
       inviteUrl,
+      emailSent: emailResult.sent,
+      emailError: emailResult.error,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

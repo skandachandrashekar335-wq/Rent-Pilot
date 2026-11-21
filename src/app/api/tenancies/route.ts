@@ -4,6 +4,7 @@ import { verifyServerAuth } from "@/lib/auth/server-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { CreateTenancySchema } from "@/lib/validation/rental";
 import { rupeesToPaise } from "@/lib/domain/rent-increments";
+import { sendTenantInvitationEmail, getAppBaseUrl } from "@/lib/notifications/brevo";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ tenancies: tenancies || [] });
+    const { data: invitations } = await supabase
+      .from("tenant_invitations")
+      .select("id, unit_id, invited_email, status, expires_at, created_at")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false });
+
+    const invitationsByUnit = new Map();
+    (invitations || []).forEach((inv) => {
+      if (inv.unit_id && !invitationsByUnit.has(inv.unit_id)) {
+        invitationsByUnit.set(inv.unit_id, inv);
+      }
+    });
+
+    const enrichedTenancies = (tenancies || []).map((t) => ({
+      ...t,
+      latestInvitation: invitationsByUnit.get(t.unit_id) || null,
+    }));
+
+    return NextResponse.json({ tenancies: enrichedTenancies });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -199,9 +218,31 @@ export async function POST(req: NextRequest) {
       created_by: auth.profileId,
     });
 
-    const host = req.headers.get("host") || "localhost:3000";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const inviteUrl = `${protocol}://${host}/invite/${rawToken}`;
+    const { data: orgData } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+    const orgName = orgData?.name || "Shekar Homes";
+
+    const { data: unitData } = await supabase
+      .from("units")
+      .select("unit_number, property:properties(name)")
+      .eq("id", parsed.data.unitId)
+      .maybeSingle();
+
+    const emailResult = await sendTenantInvitationEmail({
+      tenantEmail: parsed.data.tenantEmail,
+      tenantName: parsed.data.tenantFullName,
+      organizationName: orgName,
+      propertyName: (unitData?.property as unknown as { name?: string })?.name,
+      unitCode: unitData?.unit_number,
+      rawToken,
+      expiresInDays: 7,
+      organizationId: orgId,
+    });
+
+    const inviteUrl = emailResult.inviteUrl || `${getAppBaseUrl()}/invite/${rawToken}`;
 
     return NextResponse.json(
       {
@@ -209,6 +250,8 @@ export async function POST(req: NextRequest) {
         incrementSchedule: createdSchedule,
         inviteUrl,
         rawToken,
+        emailSent: emailResult.sent,
+        emailError: emailResult.error,
         message: "Tenancy successfully created.",
       },
       { status: 201 }

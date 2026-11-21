@@ -58,6 +58,8 @@ export function CreateTenancyDialog({
   const [successResult, setSuccessResult] = useState<{
     inviteUrl: string;
     tenantEmail: string;
+    emailSent?: boolean;
+    emailError?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -110,6 +112,8 @@ export function CreateTenancyDialog({
       setSuccessResult({
         inviteUrl: data.inviteUrl,
         tenantEmail: tenantEmail.trim(),
+        emailSent: Boolean(data.emailSent),
+        emailError: data.emailError,
       });
       onSuccess();
     } catch (err: unknown) {
@@ -352,6 +356,18 @@ export function CreateTenancyDialog({
               <div className="p-3 rounded-md bg-status-paid-bg border border-status-paid-fg/20 text-xs text-status-paid-fg font-medium">
                 Tenancy contract active! An onboarding invitation link was generated for <strong>{successResult.tenantEmail}</strong>.
               </div>
+
+              {successResult.emailSent ? (
+                <div className="p-2.5 rounded bg-surface-muted border border-border/40 text-xs flex items-center gap-2 text-status-paid-fg">
+                  <Check className="h-4 w-4 shrink-0" />
+                  <span>Invitation email dispatched to {successResult.tenantEmail} via Brevo.</span>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded bg-surface-muted border border-border/40 text-xs flex items-center gap-2 text-status-pending-fg">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Manual share required — send link or share via WhatsApp below.</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-text-primary mb-1">

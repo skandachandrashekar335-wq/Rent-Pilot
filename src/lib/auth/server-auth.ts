@@ -118,6 +118,14 @@ export async function verifyServerAuth(
     profile = newProfile;
   }
 
+  // Auto-link tenant records and pending invitations to this profile
+  const normalizedEmail = email.toLowerCase();
+  await supabase
+    .from("tenants")
+    .update({ profile_id: profile.id, updated_at: new Date().toISOString() })
+    .ilike("email", normalizedEmail)
+    .is("profile_id", null);
+
   const isOwnerAuthorized = isAllowedOwnerEmail(email);
   let isOwnerOrManager = false;
   let activeOrgId = requiredOrgId;
