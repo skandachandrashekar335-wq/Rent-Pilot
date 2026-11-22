@@ -16,6 +16,7 @@ import {
 import { formatINR } from "@/lib/utils";
 import { paiseToRupees } from "@/lib/domain/billing";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 export interface VerificationItem {
   id: string;
@@ -100,6 +101,9 @@ export function SplitScreenVerificationDrawer({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Approval failed");
 
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -130,6 +134,9 @@ export function SplitScreenVerificationDrawer({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Rejection failed");
 
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
       onSuccess();
       onClose();
     } catch (err: unknown) {

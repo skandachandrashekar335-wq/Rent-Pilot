@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Zap, X, AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface BillingUnitRow {
   tenancyId: string;
@@ -126,6 +127,10 @@ export function VariableChargesModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to process billing batch");
 
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
+      invalidateCachePrefix("/api/billing");
       onSuccess();
       onClose();
     } catch (err: unknown) {

@@ -40,6 +40,14 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const { activeOrganization } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
+
+  // Sync optimistic path when route changes
+  React.useEffect(() => {
+    setOptimisticPath(null);
+  }, [pathname]);
+
+  const activePath = optimisticPath || pathname;
 
   return (
     <div className="min-h-dvh flex flex-col bg-background text-foreground">
@@ -98,13 +106,15 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
               const Icon = item.icon;
               const isActive =
                 item.href === "/dashboard/owner"
-                  ? pathname === "/dashboard/owner"
-                  : pathname.startsWith(item.href);
+                  ? activePath === "/dashboard/owner"
+                  : activePath.startsWith(item.href);
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
+                  onPointerDown={() => setOptimisticPath(item.href)}
                   className={cn(
                     "flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors",
                     isActive
@@ -165,13 +175,15 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
                   const Icon = item.icon;
                   const isActive =
                     item.href === "/dashboard/owner"
-                      ? pathname === "/dashboard/owner"
-                      : pathname.startsWith(item.href);
+                      ? activePath === "/dashboard/owner"
+                      : activePath.startsWith(item.href);
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={true}
+                      onPointerDown={() => setOptimisticPath(item.href)}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium",

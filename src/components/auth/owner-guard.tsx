@@ -120,9 +120,9 @@ export function OwnerGuard({ children }: { children: React.ReactNode }) {
         let freshToken: string | undefined;
         if (user && typeof user.getIdToken === "function") {
           try {
-            freshToken = await user.getIdToken(true);
+            freshToken = await user.getIdToken();
           } catch (tokErr) {
-            console.warn("[owner-guard] Failed to force-refresh token:", tokErr);
+            console.warn("[owner-guard] Failed to get token:", tokErr);
           }
         }
 

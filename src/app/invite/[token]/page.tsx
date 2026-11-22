@@ -69,7 +69,7 @@ export default function AcceptInvitePage({
 
     try {
       // Force fresh token to eliminate "Invalid or expired token" errors
-      await user.getIdToken(true).catch(() => {});
+      await user.getIdToken().catch(() => {});
 
       const res = await authFetch(`/api/invitations/${token}/accept`, {
         method: "POST",

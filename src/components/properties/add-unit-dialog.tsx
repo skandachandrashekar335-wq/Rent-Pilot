@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Home, X, AlertCircle, Loader2 } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface AddUnitDialogProps {
   isOpen: boolean;
@@ -78,6 +79,8 @@ export function AddUnitDialog({
         throw new Error(data.error || "Failed to create unit");
       }
 
+      invalidateCachePrefix("/api/properties");
+      invalidateCachePrefix("/api/properties-view");
       onSuccess();
       onClose();
     } catch (err: unknown) {

@@ -178,7 +178,7 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next();
 
-  // Security Headers for API responses (Controls 2, 3, 16)
+  // Security Headers (Controls 2, 3, 16)
   res.headers.set(
     "Content-Security-Policy",
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleusercontent.com https://pnbtexouxvlurtvphzpz.supabase.co https://*.gstatic.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://pnbtexouxvlurtvphzpz.supabase.co wss://pnbtexouxvlurtvphzpz.supabase.co https://api.brevo.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
@@ -187,6 +187,11 @@ export async function middleware(req: NextRequest) {
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+
+  if (pathname.startsWith("/api")) {
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.headers.set("Pragma", "no-cache");
+  }
 
   // Attach CORS header if origin is approved
   if (origin && allowedOrigins.includes(origin)) {
@@ -198,5 +203,14 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - static file extensions (.svg, .png, .jpg, .jpeg, .gif, .webp, .ico, .woff, .woff2)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)).*)",
+  ],
 };

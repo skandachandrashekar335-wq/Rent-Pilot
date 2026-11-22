@@ -9,6 +9,19 @@ import {
 } from "firebase/auth";
 import { getFirebaseAuth, googleProvider } from "@/lib/firebase/client";
 import { authFetch } from "@/lib/api-client";
+import { clearMemoryCache } from "@/lib/cache/memory-query-cache";
+
+interface CachedSyncData {
+  profile: Profile | null;
+  memberships: Membership[];
+  isOwner: boolean;
+  isTenant: boolean;
+  activeOrganization: Organization | null;
+  timestamp: number;
+}
+
+const syncDataCache = new Map<string, CachedSyncData>();
+let inFlightSyncPromise: Promise<void> | null = null;
 
 export interface Profile {
   id: string;
@@ -79,33 +92,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const syncProfile = useCallback(async () => {
-    try {
-      const res = await authFetch("/api/auth/sync", {
-        method: "POST",
-      });
+  const syncProfile = useCallback(async (force = false) => {
+    const auth = getFirebaseAuth();
+    const currentUser = auth.currentUser;
+    const uid = currentUser?.uid;
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.error || `Sync failed with status ${res.status}`);
+    if (!force && uid && syncDataCache.has(uid)) {
+      const cached = syncDataCache.get(uid)!;
+      // Valid for 5 minutes unless forced
+      if (Date.now() - cached.timestamp < 300_000) {
+        setProfile(cached.profile);
+        setMemberships(cached.memberships);
+        setIsOwner(cached.isOwner);
+        setIsTenant(cached.isTenant);
+        setActiveOrganization(cached.activeOrganization);
+        setError(null);
+        return;
       }
-
-      const data = await res.json();
-      setProfile(data.profile);
-      setMemberships(data.memberships || []);
-      setIsOwner(Boolean(data.isOwner));
-      setIsTenant(Boolean(data.isTenant));
-
-      if (data.memberships && data.memberships.length > 0) {
-        setActiveOrganization(data.memberships[0].organization || null);
-      } else {
-        setActiveOrganization(null);
-      }
-      setError(null);
-    } catch (err: unknown) {
-      console.error("[AuthProvider] Profile synchronization failed:", err);
-      setError(err instanceof Error ? err.message : "Failed to synchronize profile");
     }
+
+    if (inFlightSyncPromise) {
+      return inFlightSyncPromise;
+    }
+
+    inFlightSyncPromise = (async () => {
+      try {
+        const res = await authFetch("/api/auth/sync", {
+          method: "POST",
+        });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null);
+          throw new Error(errJson?.error || `Sync failed with status ${res.status}`);
+        }
+
+        const data = await res.json();
+        const prof = data.profile || null;
+        const mems = data.memberships || [];
+        const ownerFlag = Boolean(data.isOwner);
+        const tenantFlag = Boolean(data.isTenant);
+        const activeOrg = mems.length > 0 ? mems[0].organization || null : null;
+
+        setProfile(prof);
+        setMemberships(mems);
+        setIsOwner(ownerFlag);
+        setIsTenant(tenantFlag);
+        setActiveOrganization(activeOrg);
+        setError(null);
+
+        if (uid) {
+          syncDataCache.set(uid, {
+            profile: prof,
+            memberships: mems,
+            isOwner: ownerFlag,
+            isTenant: tenantFlag,
+            activeOrganization: activeOrg,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (err: unknown) {
+        console.error("[AuthProvider] Profile synchronization failed:", err);
+        setError(err instanceof Error ? err.message : "Failed to synchronize profile");
+      } finally {
+        inFlightSyncPromise = null;
+      }
+    })();
+
+    return inFlightSyncPromise;
   }, []);
 
   useEffect(() => {
@@ -168,6 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("rentpilot_demo_role");
       }
+      syncDataCache.clear();
+      clearMemoryCache();
       setUser(null);
       setProfile(null);
       setMemberships([]);
@@ -180,9 +235,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshSession = async () => {
-    if (user) {
-      await syncProfile();
+    const auth = getFirebaseAuth();
+    if (auth.currentUser?.uid) {
+      syncDataCache.delete(auth.currentUser.uid);
     }
+    await syncProfile(true);
   };
 
   const signInAsDemoOwner = () => {

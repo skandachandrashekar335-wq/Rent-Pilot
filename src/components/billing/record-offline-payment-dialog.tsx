@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { DollarSign, X, AlertCircle, Loader2 } from "lucide-react";
 import { formatINR, isValidUuid } from "@/lib/utils";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface InvoiceOption {
   id: string;
@@ -91,6 +92,9 @@ export function RecordOfflinePaymentDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to record payment");
 
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
       onSuccess();
       onClose();
     } catch (err: unknown) {

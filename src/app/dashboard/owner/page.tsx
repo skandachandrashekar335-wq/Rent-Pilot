@@ -14,6 +14,7 @@ import { paiseToRupees } from "@/lib/domain/billing";
 import { InviteTenantDialog } from "@/components/auth/invite-tenant-dialog";
 import { SplitScreenVerificationDrawer } from "@/components/billing/split-screen-verification-drawer";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 import { RecordOfflinePaymentDialog } from "@/components/billing/record-offline-payment-dialog";
 import { VariableChargesModal } from "@/components/billing/variable-charges-modal";
 
@@ -67,6 +68,8 @@ export default function OwnerOverviewPage() {
   const [variableChargesOpen, setVariableChargesOpen] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  const OVERVIEW_CACHE_KEY = "/api/overview-invoices-data";
+
   const fetchDashboardData = useCallback(async () => {
     try {
       if (!user) {
@@ -74,6 +77,13 @@ export default function OwnerOverviewPage() {
         setPendingVerifications([]);
         setLoading(false);
         return;
+      }
+
+      const cached = getMemoryCache<{ invoices: OverviewInvoice[]; verifications: PendingVerification[] }>(OVERVIEW_CACHE_KEY);
+      if (cached) {
+        setInvoices(cached.invoices);
+        setPendingVerifications(cached.verifications);
+        setLoading(false);
       }
 
       const res = await authFetch("/api/invoices");
@@ -112,6 +122,7 @@ export default function OwnerOverviewPage() {
       });
 
       setPendingVerifications(verifications);
+      setMemoryCache(OVERVIEW_CACHE_KEY, { invoices: invs, verifications });
 
       // Stage F: Demand-driven background reconciliation on owner dashboard mount
       authFetch("/api/billing/reconcile", {
@@ -121,8 +132,10 @@ export default function OwnerOverviewPage() {
       });
     } catch (err: unknown) {
       console.warn("[Dashboard] Invoices fetch error:", err);
-      setPendingVerifications([]);
-      setInvoices([]);
+      if (!getMemoryCache(OVERVIEW_CACHE_KEY)) {
+        setPendingVerifications([]);
+        setInvoices([]);
+      }
     } finally {
       setLoading(false);
     }

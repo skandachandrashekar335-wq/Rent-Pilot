@@ -16,6 +16,7 @@ import { VariableChargesModal } from "@/components/billing/variable-charges-moda
 import { RecordOfflinePaymentDialog } from "@/components/billing/record-offline-payment-dialog";
 import { SplitScreenVerificationDrawer, VerificationItem } from "@/components/billing/split-screen-verification-drawer";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 
 interface RawInvoiceApiResponse {
   id: string;
@@ -67,12 +68,20 @@ export default function BillingPage() {
   const [verificationItem, setVerificationItem] = useState<VerificationItem | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  const BILLING_CACHE_KEY = "/api/billing-invoices-view";
+
   const fetchInvoices = useCallback(async () => {
     try {
       if (!user) {
         setInvoices([]);
         setLoading(false);
         return;
+      }
+
+      const cached = getMemoryCache<InvoiceRow[]>(BILLING_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setInvoices(cached);
+        setLoading(false);
       }
 
       const res = await authFetch("/api/invoices");
@@ -109,9 +118,12 @@ export default function BillingPage() {
       });
 
       setInvoices(mapped);
+      setMemoryCache(BILLING_CACHE_KEY, mapped);
     } catch (err: unknown) {
       console.warn("[Billing] Invoices fetch error:", err);
-      setInvoices([]);
+      if (!getMemoryCache(BILLING_CACHE_KEY)) {
+        setInvoices([]);
+      }
     } finally {
       setLoading(false);
     }

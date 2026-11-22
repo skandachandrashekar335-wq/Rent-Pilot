@@ -21,6 +21,7 @@ import {
 import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache, invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface TenantMaintenanceItem {
   id: string;
@@ -67,6 +68,8 @@ function TenantSupportContent() {
   // Cancellation state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
+  const PORTAL_SUPPORT_CACHE_KEY = "/api/portal-maintenance-requests";
+
   const fetchTickets = useCallback(async () => {
     try {
       if (!user) {
@@ -74,6 +77,13 @@ function TenantSupportContent() {
         setLoading(false);
         return;
       }
+
+      const cached = getMemoryCache<TenantMaintenanceItem[]>(PORTAL_SUPPORT_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setTickets(cached);
+        setLoading(false);
+      }
+
       const res = await authFetch("/api/maintenance");
 
       if (!res.ok) {
@@ -81,10 +91,14 @@ function TenantSupportContent() {
         throw new Error(errJson?.error || "Failed to load maintenance requests");
       }
       const data = await res.json();
-      setTickets(data.requests || []);
+      const list = data.requests || [];
+      setTickets(list);
+      setMemoryCache(PORTAL_SUPPORT_CACHE_KEY, list);
     } catch (err: unknown) {
       console.warn("[Portal Support] Fetch warning:", err);
-      setTickets([]);
+      if (!getMemoryCache(PORTAL_SUPPORT_CACHE_KEY)) {
+        setTickets([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -226,6 +240,7 @@ function TenantSupportContent() {
       setPhotoFiles([]);
       setShowForm(false);
       setSuccessMessage("Maintenance request submitted successfully! Your landlord has been notified.");
+      invalidateCachePrefix("/api/maintenance");
       fetchTickets();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: unknown) {
@@ -255,6 +270,7 @@ function TenantSupportContent() {
         const data = await res.json();
         alert(data.error || "Failed to cancel ticket");
       } else {
+        invalidateCachePrefix("/api/maintenance");
         fetchTickets();
       }
     } catch (err) {

@@ -13,32 +13,24 @@ export async function GET(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient();
 
-    // 1. Find tenant record linked to profile or email
-    let { data: tenant } = await supabase
+    // 1. Find tenant record linked to profile or email in a single query
+    const { data: tenant } = await supabase
       .from("tenants")
       .select("id, full_name, email, phone, profile_id")
-      .eq("profile_id", auth.profileId)
+      .or(`profile_id.eq.${auth.profileId},email.ilike.${auth.email}`)
+      .limit(1)
       .maybeSingle();
 
     if (!tenant) {
-      const { data: tenantByEmail } = await supabase
-        .from("tenants")
-        .select("id, full_name, email, phone, profile_id")
-        .ilike("email", auth.email)
-        .maybeSingle();
-
-      if (tenantByEmail) {
-        tenant = tenantByEmail;
-        // Auto-link profile_id
-        await supabase
-          .from("tenants")
-          .update({ profile_id: auth.profileId, updated_at: new Date().toISOString() })
-          .eq("id", tenantByEmail.id);
-      }
+      return NextResponse.json({ activeTenancy: null, isLinked: false });
     }
 
-    if (!tenant) {
-      return NextResponse.json({ activeTenancy: null, isLinked: false });
+    if (!tenant.profile_id) {
+      // Link profile asynchronously
+      await supabase
+        .from("tenants")
+        .update({ profile_id: auth.profileId, updated_at: new Date().toISOString() })
+        .eq("id", tenant.id);
     }
 
     // 2. Fetch active or upcoming tenancy

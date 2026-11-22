@@ -22,6 +22,7 @@ import {
 import { formatINR } from "@/lib/utils";
 import { useTranslation } from "@/components/layout/locale-context";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 export interface MaintenanceTicketDetail {
   id: string;
@@ -155,6 +156,9 @@ export function MaintenanceDrawer({
         throw new Error(data.error || "Failed to update ticket status");
       }
 
+      invalidateCachePrefix("/api/maintenance");
+      invalidateCachePrefix("/api/maintenance-tickets-view");
+      invalidateCachePrefix("/api/portal-maintenance-requests");
       onUpdated();
       // Reload drawer data
       const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
@@ -193,6 +197,9 @@ export function MaintenanceDrawer({
         throw new Error(data.error || "Failed to save expenses");
       }
 
+      invalidateCachePrefix("/api/maintenance");
+      invalidateCachePrefix("/api/maintenance-tickets-view");
+      invalidateCachePrefix("/api/portal-maintenance-requests");
       onUpdated();
       const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
       if (updatedRes.ok) {
@@ -231,6 +238,9 @@ export function MaintenanceDrawer({
 
       setCommentText("");
       setIsInternalNote(false);
+      invalidateCachePrefix("/api/maintenance");
+      invalidateCachePrefix("/api/maintenance-tickets-view");
+      invalidateCachePrefix("/api/portal-maintenance-requests");
       onUpdated();
       const updatedRes = await authFetch(`/api/maintenance/${ticket.id}`);
       if (updatedRes.ok) {

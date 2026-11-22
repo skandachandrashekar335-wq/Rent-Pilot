@@ -110,9 +110,12 @@ async function handleAuthSync(req: NextRequest) {
     }
 
     const isOwnerAuthorized = isAllowedOwnerEmail(email);
+    const normalizedEmail = email.toLowerCase();
 
-    // Hard-locked Admin/Owner Rule: skandachandrashekar335@gmail.com and chandraskekar335@gmail.com ONLY
-    if (isOwnerAuthorized) {
+    // 2. Parallelize Owner Organization Check & Tenant Profile Association
+    const ownerOrgPromise = (async () => {
+      if (!isOwnerAuthorized) return [];
+
       let { data: shekarOrg } = await supabase
         .from("organizations")
         .select("id, name, owner_profile_id")
@@ -150,30 +153,59 @@ async function handleAuthSync(req: NextRequest) {
             { onConflict: "organization_id,profile_id" }
           );
       }
-    }
 
-    // 2. Fetch Organization Memberships
-    let memberships: Array<Record<string, unknown>> = [];
-    if (isOwnerAuthorized) {
       const { data: ownerMemberships } = await supabase
         .from("organization_memberships")
         .select("*, organization:organizations(*)")
         .eq("profile_id", profile.id)
         .eq("status", "ACTIVE")
         .order("created_at", { ascending: false });
-      memberships = ownerMemberships || [];
-    }
 
-    // 3. Auto-Claim Pending Tenant Invitations & Bind Profile ID (Phase 3)
-    const normalizedEmail = email.toLowerCase();
+      return ownerMemberships || [];
+    })();
 
-    // Query and auto-claim pending invitations matching this user's email
-    const { data: pendingInvitations } = await supabase
+    const pendingInvPromise = supabase
       .from("tenant_invitations")
       .select("id, organization_id, unit_id")
       .ilike("invited_email", normalizedEmail)
       .eq("status", "PENDING");
 
+    const linkTenantsPromise = supabase
+      .from("tenants")
+      .update({
+        profile_id: profile.id,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", normalizedEmail);
+
+    const tenantRecordsPromise = supabase
+      .from("tenants")
+      .select("id")
+      .or(`profile_id.eq.${profile.id},email.ilike.${normalizedEmail}`);
+
+    const acceptedInvPromise = supabase
+      .from("tenant_invitations")
+      .select("id")
+      .ilike("invited_email", normalizedEmail)
+      .eq("status", "ACCEPTED")
+      .limit(1);
+
+    // Execute independent queries in parallel
+    const [
+      memberships,
+      { data: pendingInvitations },
+      ,
+      { data: tenantRecords },
+      { data: acceptedInvitations },
+    ] = await Promise.all([
+      ownerOrgPromise,
+      pendingInvPromise,
+      linkTenantsPromise,
+      tenantRecordsPromise,
+      acceptedInvPromise,
+    ]);
+
+    // Handle any pending invitations claim in background
     if (pendingInvitations && pendingInvitations.length > 0) {
       await supabase
         .from("tenant_invitations")
@@ -184,23 +216,7 @@ async function handleAuthSync(req: NextRequest) {
         .in("id", pendingInvitations.map((p) => p.id));
     }
 
-    // Link any unlinked tenant rows with matching email to this profile
-    await supabase
-      .from("tenants")
-      .update({
-        profile_id: profile.id,
-        updated_at: new Date().toISOString(),
-      })
-      .ilike("email", normalizedEmail);
-
-    // Check for linked tenant records or active/accepted invitations
-    const { data: tenantRecords } = await supabase
-      .from("tenants")
-      .select("id")
-      .or(`profile_id.eq.${profile.id},email.ilike.${normalizedEmail}`);
-
     const tenantIds = (tenantRecords || []).map((t) => t.id);
-
     let hasActiveTenancy = false;
     if (tenantIds.length > 0) {
       const { data: activeTenancies } = await supabase
@@ -212,13 +228,6 @@ async function handleAuthSync(req: NextRequest) {
 
       hasActiveTenancy = Boolean(activeTenancies && activeTenancies.length > 0);
     }
-
-    const { data: acceptedInvitations } = await supabase
-      .from("tenant_invitations")
-      .select("id")
-      .ilike("invited_email", normalizedEmail)
-      .eq("status", "ACCEPTED")
-      .limit(1);
 
     const hasAcceptedInvitation = Boolean(acceptedInvitations && acceptedInvitations.length > 0);
     const isTenant = hasActiveTenancy || hasAcceptedInvitation || (tenantRecords && tenantRecords.length > 0);

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { UserCheck, X, AlertCircle, Copy, Check, ExternalLink, Loader2, TrendingUp } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface CreateTenancyDialogProps {
   isOpen: boolean;
@@ -117,6 +118,12 @@ export function CreateTenancyDialog({
         emailSent: Boolean(data.emailSent),
         emailError: data.emailError,
       });
+      invalidateCachePrefix("/api/properties");
+      invalidateCachePrefix("/api/properties-view");
+      invalidateCachePrefix("/api/tenancies");
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create tenancy");

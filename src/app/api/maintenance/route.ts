@@ -54,12 +54,13 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({ requests: requests || [] });
     } else {
-      // Tenant perspective: Find active tenancies linked to tenant's profile
+      // Tenant perspective: Find active tenancies linked to tenant's profile or email in a single query
       const { data: tenantRecord } = await supabase
         .from("tenants")
         .select("id")
-        .eq("profile_id", auth.profileId)
-        .single();
+        .or(`profile_id.eq.${auth.profileId},email.ilike.${auth.email}`)
+        .limit(1)
+        .maybeSingle();
 
       if (!tenantRecord) {
         return NextResponse.json({ requests: [] });

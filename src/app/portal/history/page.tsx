@@ -11,6 +11,7 @@ import { useTranslation } from "@/components/layout/locale-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/billing";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 
 interface HistoryPayment {
   id: string;
@@ -44,6 +45,8 @@ export default function TenantHistoryPage() {
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const HISTORY_CACHE_KEY = "/api/portal-history-records";
+
   useEffect(() => {
     async function loadHistory() {
       try {
@@ -51,6 +54,12 @@ export default function TenantHistoryPage() {
           setHistoryRecords([]);
           setLoading(false);
           return;
+        }
+
+        const cached = getMemoryCache<HistoryRecord[]>(HISTORY_CACHE_KEY);
+        if (cached && cached.length > 0) {
+          setHistoryRecords(cached);
+          setLoading(false);
         }
 
         const res = await authFetch("/api/invoices");
@@ -84,12 +93,17 @@ export default function TenantHistoryPage() {
           });
 
           setHistoryRecords(records);
+          setMemoryCache(HISTORY_CACHE_KEY, records);
         } else {
-          setHistoryRecords([]);
+          if (!getMemoryCache(HISTORY_CACHE_KEY)) {
+            setHistoryRecords([]);
+          }
         }
       } catch (err) {
         console.warn("[Portal History] Fetch error:", err);
-        setHistoryRecords([]);
+        if (!getMemoryCache(HISTORY_CACHE_KEY)) {
+          setHistoryRecords([]);
+        }
       } finally {
         setLoading(false);
       }

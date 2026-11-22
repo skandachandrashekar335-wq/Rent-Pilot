@@ -20,6 +20,7 @@ import { EndTenancyDialog } from "@/components/properties/end-tenancy-dialog";
 import { EditRentDialog } from "@/components/properties/edit-rent-dialog";
 import { ShareInviteDialog } from "@/components/properties/share-invite-dialog";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 
 interface UnitData {
   id: string;
@@ -145,12 +146,21 @@ export default function PropertiesPage() {
     isLinked: false,
   });
 
+  const PROPERTIES_CACHE_KEY = "/api/properties-view";
+
   const fetchPropertiesData = useCallback(async () => {
     try {
       if (!user) {
         setProperties([]);
         setLoading(false);
         return;
+      }
+
+      // 1. Immediately apply cached data if available (0 ms render)
+      const cached = getMemoryCache<PropertyData[]>(PROPERTIES_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setProperties(cached);
+        setLoading(false);
       }
 
       const [propsRes, tenanciesRes] = await Promise.all([
@@ -216,9 +226,12 @@ export default function PropertiesPage() {
       }));
 
       setProperties(loadedProps);
+      setMemoryCache(PROPERTIES_CACHE_KEY, loadedProps);
     } catch (err: unknown) {
       console.warn("[Properties] Fetch error:", err);
-      setProperties([]);
+      if (!getMemoryCache(PROPERTIES_CACHE_KEY)) {
+        setProperties([]);
+      }
     } finally {
       setLoading(false);
     }

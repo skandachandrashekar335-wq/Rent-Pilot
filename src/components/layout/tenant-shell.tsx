@@ -27,6 +27,13 @@ const tabItems: TabItem[] = [
 export function TenantShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const [optimisticPath, setOptimisticPath] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setOptimisticPath(null);
+  }, [pathname]);
+
+  const activePath = optimisticPath || pathname;
 
   return (
     <div className="min-h-dvh flex flex-col bg-background text-foreground pb-[calc(4rem+env(safe-area-inset-bottom))]">
@@ -72,12 +79,14 @@ export function TenantShell({ children }: { children: React.ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)] max-w-lg mx-auto">
         {tabItems.map((tab) => {
           const Icon = tab.icon;
-          const isActive = pathname === tab.href;
+          const isActive = activePath === tab.href;
 
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={true}
+              onPointerDown={() => setOptimisticPath(tab.href)}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full min-h-[44px] transition-colors",
                 isActive

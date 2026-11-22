@@ -20,6 +20,7 @@ import {
 import { formatINR } from "@/lib/utils";
 import { buildUpiPaymentUri, normalizePaymentReference } from "@/lib/domain/billing";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface UpiPaymentModalProps {
   isOpen: boolean;
@@ -142,6 +143,12 @@ export function UpiPaymentModal({
       }
 
       setSuccess(true);
+      invalidateCachePrefix("/api/invoices");
+      invalidateCachePrefix("/api/portal");
+      invalidateCachePrefix("/api/portal-home-data");
+      invalidateCachePrefix("/api/portal-history-records");
+      invalidateCachePrefix("/api/billing-invoices-view");
+      invalidateCachePrefix("/api/overview-invoices-data");
       setTimeout(() => {
         onSuccess();
         onClose();

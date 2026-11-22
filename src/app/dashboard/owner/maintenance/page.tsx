@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/billing";
 import { MaintenanceDrawer } from "@/components/maintenance/maintenance-drawer";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 
 interface MaintenanceItem {
   id: string;
@@ -56,6 +57,8 @@ function MaintenancePageContent() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const MAINTENANCE_CACHE_KEY = "/api/maintenance-tickets-view";
+
   const fetchTickets = useCallback(async () => {
     try {
       if (!user) {
@@ -63,6 +66,13 @@ function MaintenancePageContent() {
         setLoading(false);
         return;
       }
+
+      const cached = getMemoryCache<MaintenanceItem[]>(MAINTENANCE_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setTickets(cached);
+        setLoading(false);
+      }
+
       const res = await authFetch("/api/maintenance");
 
       if (!res.ok) {
@@ -70,10 +80,14 @@ function MaintenancePageContent() {
         throw new Error(errJson?.error || "Failed to load maintenance tickets");
       }
       const data = await res.json();
-      setTickets(data.requests || []);
+      const list = data.requests || [];
+      setTickets(list);
+      setMemoryCache(MAINTENANCE_CACHE_KEY, list);
     } catch (err: unknown) {
       console.warn("[Maintenance] Fetch error:", err);
-      setTickets([]);
+      if (!getMemoryCache(MAINTENANCE_CACHE_KEY)) {
+        setTickets([]);
+      }
     } finally {
       setLoading(false);
     }

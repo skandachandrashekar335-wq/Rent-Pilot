@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { paiseToRupees } from "@/lib/domain/rent-increments";
 import { UpiPaymentModal } from "@/components/portal/upi-payment-modal";
 import { authFetch } from "@/lib/api-client";
+import { getMemoryCache, setMemoryCache } from "@/lib/cache/memory-query-cache";
 
 interface PortalInvoice {
   id: string;
@@ -68,11 +69,23 @@ export default function TenantHomePage() {
   const [recentReceipt, setRecentReceipt] = useState<RecentReceipt | null>(null);
   const [showPayModal, setShowPayModal] = useState(false);
 
+  const PORTAL_CACHE_KEY = "/api/portal-home-data";
+
   useEffect(() => {
     async function loadPortalData() {
       if (!user) {
         setLoading(false);
         return;
+      }
+
+      const cached = getMemoryCache<{
+        tenancyInfo: typeof tenancyInfo;
+        recentReceipt: RecentReceipt | null;
+      }>(PORTAL_CACHE_KEY);
+      if (cached) {
+        setTenancyInfo(cached.tenancyInfo);
+        setRecentReceipt(cached.recentReceipt);
+        setLoading(false);
       }
 
       try {
@@ -148,7 +161,7 @@ export default function TenantHomePage() {
               }
             }
 
-            setTenancyInfo({
+            const newTenancyInfo = {
               tenancyId,
               unitNumber,
               propertyName,
@@ -157,17 +170,28 @@ export default function TenantHomePage() {
               totalInvoicesCount,
               outstandingInvoicesCount,
               activeInvoice,
-            });
+            };
+            setTenancyInfo(newTenancyInfo);
             setRecentReceipt(receipt);
+            setMemoryCache(PORTAL_CACHE_KEY, {
+              tenancyInfo: newTenancyInfo,
+              recentReceipt: receipt,
+            });
           } else {
             setTenancyInfo(null);
+            setMemoryCache(PORTAL_CACHE_KEY, {
+              tenancyInfo: null,
+              recentReceipt: null,
+            });
           }
         } else {
           setTenancyInfo(null);
         }
       } catch (err) {
         console.warn("[Portal] Tenancy fetch error:", err);
-        setTenancyInfo(null);
+        if (!getMemoryCache(PORTAL_CACHE_KEY)) {
+          setTenancyInfo(null);
+        }
       } finally {
         setLoading(false);
       }

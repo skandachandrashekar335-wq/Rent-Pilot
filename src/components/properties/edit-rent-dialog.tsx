@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, AlertCircle, CheckCircle2, Pencil, X } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 import { formatINR } from "@/lib/utils";
 
 interface EditRentDialogProps {
@@ -76,6 +77,9 @@ export function EditRentDialog({
       }
 
       setSuccess(true);
+      invalidateCachePrefix("/api/properties");
+      invalidateCachePrefix("/api/properties-view");
+      invalidateCachePrefix("/api/tenancies");
       setTimeout(() => {
         onSuccess();
         onClose();

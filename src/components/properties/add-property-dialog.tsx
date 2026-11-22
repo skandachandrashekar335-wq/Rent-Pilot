@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Building2, X, AlertCircle, Loader2 } from "lucide-react";
 import { isValidUuid } from "@/lib/utils";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface AddPropertyDialogProps {
   isOpen: boolean;
@@ -68,6 +69,8 @@ export function AddPropertyDialog({ isOpen, onClose, onSuccess }: AddPropertyDia
         throw new Error(data.error || "Failed to create property");
       }
 
+      invalidateCachePrefix("/api/properties");
+      invalidateCachePrefix("/api/properties-view");
       onSuccess();
       onClose();
     } catch (err: unknown) {

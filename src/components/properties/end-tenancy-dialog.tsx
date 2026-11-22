@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogOut, X, AlertCircle, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
+import { invalidateCachePrefix } from "@/lib/cache/memory-query-cache";
 
 interface EndTenancyDialogProps {
   isOpen: boolean;
@@ -59,6 +60,9 @@ export function EndTenancyDialog({
         throw new Error(data.error || "Failed to end tenancy");
       }
 
+      invalidateCachePrefix("/api/properties");
+      invalidateCachePrefix("/api/properties-view");
+      invalidateCachePrefix("/api/tenancies");
       onSuccess();
       onClose();
     } catch (err: unknown) {

@@ -22,29 +22,33 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = createAdminSupabaseClient();
-    const { data: tenancies, error } = await supabase
-      .from("tenancies")
-      .select(`
-        *,
-        tenant:tenants(*),
-        unit:units(
-          *,
-          property:properties(id, name, address_line, city)
-        ),
-        rent_increment_schedules:rent_increment_schedules(*)
-      `)
-      .eq("organization_id", orgId)
-      .order("start_date", { ascending: false });
+    const [
+      { data: tenancies, error },
+      { data: invitations },
+    ] = await Promise.all([
+      supabase
+        .from("tenancies")
+        .select(`
+          id, organization_id, unit_id, tenant_id, start_date, end_date, monthly_rent_paise, security_deposit_paise, status, termination_reason, created_at, updated_at,
+          tenant:tenants(id, full_name, email, phone, profile_id),
+          unit:units(
+            id, unit_number, floor_number, configuration_label, bedrooms, bathrooms, has_parking, facilities, base_rent_paise, security_deposit_paise, occupancy_status,
+            property:properties(id, name, address_line, city)
+          ),
+          rent_increment_schedules:rent_increment_schedules(id, increment_type, increment_value, interval_months, next_increment_date, auto_apply, status)
+        `)
+        .eq("organization_id", orgId)
+        .order("start_date", { ascending: false }),
+      supabase
+        .from("tenant_invitations")
+        .select("id, unit_id, invited_email, status, expires_at, created_at")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    const { data: invitations } = await supabase
-      .from("tenant_invitations")
-      .select("id, unit_id, invited_email, status, expires_at, created_at")
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false });
 
     const invitationsByUnit = new Map();
     (invitations || []).forEach((inv) => {
