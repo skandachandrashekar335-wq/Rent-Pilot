@@ -328,7 +328,7 @@ export default function TenantHomePage() {
               </div>
               <h3 className="text-base font-semibold text-text-primary">No Invoices Issued Yet</h3>
               <p className="text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
-                Your landlord hasn&apos;t generated your first monthly invoice yet. Once issued, your UPI payment link and screenshot uploader will appear here.
+                Your landlord hasn&apos;t generated your first monthly invoice yet. Once issued, your UPI payment link and receipt uploader will appear here.
               </p>
             </CardContent>
           </Card>
